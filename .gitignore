@@ -22,3 +22,6 @@ dist/
 # Scratch
 scratch/
 *.log
+
+# Feast benchmarks fork (MagicLex/feast-benchmarks), tracked in its own repo
+/feast-benchmarks/
