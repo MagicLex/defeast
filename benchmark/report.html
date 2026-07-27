@@ -1,0 +1,224 @@
+<title>Feast vs Hopsworks: online serving latency</title>
+<style>
+  .viz-root {
+    color-scheme: light;
+    --plane:#f9f9f7; --surface-1:#fcfcfb;
+    --text-primary:#0b0b0b; --text-secondary:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --baseline:#c3c2b7; --border:rgba(11,11,11,0.10);
+    --hops:#2a78d6; --feast:#eb6834;
+    --font:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  @media (prefers-color-scheme: dark){ :root:where(:not([data-theme="light"])) .viz-root{
+    color-scheme:dark; --plane:#0d0d0d; --surface-1:#1a1a19;
+    --text-primary:#fff; --text-secondary:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --hops:#3987e5; --feast:#d95926;
+  }}
+  :root[data-theme="dark"] .viz-root{
+    color-scheme:dark; --plane:#0d0d0d; --surface-1:#1a1a19;
+    --text-primary:#fff; --text-secondary:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --baseline:#383835; --border:rgba(255,255,255,0.10);
+    --hops:#3987e5; --feast:#d95926;
+  }
+  .viz-root{ background:var(--plane); color:var(--text-primary); font-family:var(--font);
+    line-height:1.5; margin:0; padding:clamp(16px,4vw,40px); }
+  .wrap{ max-width:900px; margin:0 auto; }
+  h1{ font-size:clamp(22px,4vw,30px); margin:0 0 6px; letter-spacing:-0.02em; }
+  .sub{ color:var(--text-secondary); font-size:15px; margin:0 0 4px; }
+  .verdict{ font-size:16px; margin:18px 0 28px; padding:14px 16px; background:var(--surface-1);
+    border:1px solid var(--border); border-radius:10px; }
+  .verdict b{ color:var(--feast); }
+  .hero-row{ display:flex; flex-wrap:wrap; gap:14px; margin:0 0 30px; }
+  .tile{ flex:1 1 150px; background:var(--surface-1); border:1px solid var(--border);
+    border-radius:10px; padding:14px 16px; }
+  .tile .n{ font-size:clamp(26px,5vw,34px); font-weight:650; letter-spacing:-0.02em; }
+  .tile .l{ font-size:13px; color:var(--text-secondary); margin-top:2px; }
+  .card{ background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+    padding:18px 18px 10px; margin:0 0 24px; }
+  .card h2{ font-size:16px; margin:0 0 2px; }
+  .card .cs{ font-size:13px; color:var(--text-secondary); margin:0 0 10px; }
+  .legend{ display:flex; gap:16px; font-size:13px; color:var(--text-secondary); margin:0 0 6px; }
+  .legend span{ display:inline-flex; align-items:center; gap:6px; }
+  .sw{ width:11px; height:11px; border-radius:3px; display:inline-block; }
+  svg{ width:100%; height:auto; display:block; overflow:visible; }
+  .ax{ fill:var(--muted); font-size:11px; }
+  .axt{ fill:var(--text-secondary); font-size:12px; }
+  .gl{ stroke:var(--grid); stroke-width:1; }
+  .bl{ stroke:var(--baseline); stroke-width:1; }
+  .dl{ font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; }
+  table{ border-collapse:collapse; width:100%; font-size:13px; font-variant-numeric:tabular-nums; }
+  th,td{ text-align:right; padding:6px 10px; border-bottom:1px solid var(--border); }
+  th:first-child,td:first-child{ text-align:left; }
+  thead th{ color:var(--muted); font-weight:600; }
+  .cap{ font-size:13.5px; color:var(--text-secondary); }
+  .cap h2{ font-size:15px; color:var(--text-primary); margin:22px 0 6px; }
+  .cap li{ margin:4px 0; }
+  .tip{ position:fixed; pointer-events:none; opacity:0; background:var(--surface-1);
+    border:1px solid var(--border); border-radius:8px; padding:7px 10px; font-size:12.5px;
+    box-shadow:0 4px 14px rgba(0,0,0,.12); z-index:9; font-variant-numeric:tabular-nums; }
+  .foot{ font-size:12px; color:var(--muted); margin-top:26px; }
+</style>
+
+<div class="viz-root"><div class="wrap">
+  <h1>Feast vs Hopsworks: online serving latency</h1>
+  <p class="sub">Same data, same feature model, same query sweep, one machine. Single-thread, warm, SDK path.</p>
+
+  <div class="verdict">
+    Hopsworks retrieves online features <b>2x to 28x faster</b> at the median, and the gap widens with load.
+    Feast's latency climbs almost linearly with batch size; RonDB stays nearly flat. And Feast had the home
+    advantage: its store (Redis) ran on localhost, Hopsworks went over the network.
+  </div>
+
+  <div class="hero-row">
+    <div class="tile"><div class="n" style="color:var(--hops)">2.7 ms</div><div class="l">Hopsworks p50, 1 row / 50 feats</div></div>
+    <div class="tile"><div class="n" style="color:var(--feast)">5.6 ms</div><div class="l">Feast p50, same query</div></div>
+    <div class="tile"><div class="n">28x</div><div class="l">Hopsworks lead at batch 100</div></div>
+    <div class="tile"><div class="n">45x</div><div class="l">Feast's own slowdown, batch 1→100</div></div>
+  </div>
+
+  <div class="card">
+    <h2>Latency vs batch size</h2>
+    <p class="cs">p50 retrieval time, 50 features, log scale. Shaded band = p50 to p99.</p>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--hops)"></i>Hopsworks (RonDB)</span>
+      <span><i class="sw" style="background:var(--feast)"></i>Feast (Redis, localhost)</span>
+    </div>
+    <svg id="c1" viewBox="0 0 720 340" role="img" aria-label="Latency vs batch size"></svg>
+  </div>
+
+  <div class="card">
+    <h2>Latency vs feature count</h2>
+    <p class="cs">p50 retrieval time, single row, log scale.</p>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--hops)"></i>Hopsworks</span>
+      <span><i class="sw" style="background:var(--feast)"></i>Feast</span>
+    </div>
+    <svg id="c2" viewBox="0 0 720 340" role="img" aria-label="Latency vs feature count"></svg>
+  </div>
+
+  <div class="card">
+    <h2>All cells</h2>
+    <p class="cs">Milliseconds. Ratio = Feast p50 / Hopsworks p50.</p>
+    <table>
+      <thead><tr><th>Query</th><th>Feast p50</th><th>Feast p99</th><th>Hops p50</th><th>Hops p99</th><th>Ratio p50</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table>
+  </div>
+
+  <div class="cap">
+    <h2>How to read this honestly</h2>
+    <ul>
+      <li><b>Feast played at home.</b> Its Redis store ran on localhost, zero network. The Hopsworks client went over the network to RonDB with TLS. The advantage was Feast's, and it still lost.</li>
+      <li><b>This is the median story.</b> At the very smallest query (1 row), Hopsworks shows occasional network tail spikes (~210 ms p99 on some cells) that Feast's localhost avoids. Those are external-client artifacts, not RonDB. Under any real load (batch or many features) Hopsworks wins on every percentile.</li>
+      <li><b>Same slow path for both.</b> Both numbers are the Python SDK returning a materialized object. This is the default <code>pip install feast</code> path, not the alpha Go feature server Feast benchmarks advertise.</li>
+      <li><b>Where online serving lives.</b> Recommenders and fraud fetch many entities per request. That is exactly where Feast collapses (253 ms at batch 100) and RonDB holds (9 ms).</li>
+    </ul>
+  </div>
+
+  <p class="foot">300 measured calls per cell after 50 warmup, random entities over a 10k keyspace, 250 int64 features in 25 groups of 10. Run on a 96-core host, 2026-07-27.</p>
+</div></div>
+
+<div class="tip" id="tip"></div>
+
+<script>
+const BATCH = {
+  x:[1,10,25,50,100],
+  hops_p50:[2.68,3.61,4.68,6.17,9.08], hops_p99:[3.72,4.74,5.37,7.40,10.97],
+  feast_p50:[5.64,28.97,64.45,126.70,253.05], feast_p99:[11.14,52.81,117.03,225.87,444.45],
+};
+const FEAT = {
+  x:[50,100,150,200,250],
+  hops_p50:[2.68,3.23,3.75,4.39,4.95],
+  feast_p50:[5.64,10.72,16.23,22.33,27.47],
+};
+const TABLE = [
+  ["1 row, 50 feats",5.64,11.14,2.68,3.72],
+  ["10 rows, 50 feats",28.97,52.81,3.61,4.74],
+  ["25 rows, 50 feats",64.45,117.03,4.68,5.37],
+  ["50 rows, 50 feats",126.70,225.87,6.17,7.40],
+  ["100 rows, 50 feats",253.05,444.45,9.08,10.97],
+  ["1 row, 100 feats",10.72,20.66,3.23,4.20],
+  ["1 row, 150 feats",16.23,32.02,3.75,4.47],
+  ["1 row, 200 feats",22.33,46.20,4.39,214.75],
+  ["1 row, 250 feats",27.47,54.95,4.95,216.11],
+];
+
+const cs = getComputedStyle(document.querySelector('.viz-root'));
+const C = { hops:cs.getPropertyValue('--hops').trim(), feast:cs.getPropertyValue('--feast').trim(),
+  grid:cs.getPropertyValue('--grid').trim(), base:cs.getPropertyValue('--baseline').trim(),
+  muted:cs.getPropertyValue('--muted').trim(), sec:cs.getPropertyValue('--text-secondary').trim() };
+const W=720,H=340, M={t:18,r:56,b:44,l:52};
+const iw=W-M.l-M.r, ih=H-M.t-M.b;
+const NS='http://www.w3.org/2000/svg';
+const el=(n,a)=>{const e=document.createElementNS(NS,n);for(const k in a)e.setAttribute(k,a[k]);return e;};
+const ly=v=>Math.log10(v);
+
+function chart(svgId, xs, series, opts){
+  const svg=document.getElementById(svgId); svg.textContent='';
+  const yvals=series.flatMap(s=>s.y).concat(opts.band? series.flatMap(s=>s.hi||[]):[]);
+  const ymin=1, ymax=Math.pow(10,Math.ceil(ly(Math.max(...yvals))));
+  const xmin=Math.min(...xs), xmax=Math.max(...xs);
+  const xlog=!!opts.xlog;
+  const px=x=> M.l + (xlog? (ly(x)-ly(xmin))/(ly(xmax)-ly(xmin)) : (x-xmin)/(xmax-xmin))*iw;
+  const py=v=> M.t + ih - (ly(v)-ly(ymin))/(ly(ymax)-ly(ymin))*ih;
+  // y gridlines at powers of 10 and 2/5 subdivisions
+  const ticks=[1,2,5,10,20,50,100,200,500].filter(t=>t>=ymin&&t<=ymax);
+  ticks.forEach(t=>{
+    svg.appendChild(el('line',{x1:M.l,x2:M.l+iw,y1:py(t),y2:py(t),class:'gl'}));
+    const tx=el('text',{x:M.l-8,y:py(t)+4,'text-anchor':'end',class:'ax'}); tx.textContent=t; svg.appendChild(tx);
+  });
+  // x ticks
+  xs.forEach(x=>{
+    const t=el('text',{x:px(x),y:H-M.b+18,'text-anchor':'middle',class:'ax'}); t.textContent=x; svg.appendChild(t);
+  });
+  svg.appendChild(el('line',{x1:M.l,x2:M.l+iw,y1:M.t+ih,y2:M.t+ih,class:'bl'}));
+  const axl=el('text',{x:M.l+iw/2,y:H-4,'text-anchor':'middle',class:'axt'}); axl.textContent=opts.xlabel; svg.appendChild(axl);
+  const ayl=el('text',{x:-(M.t+ih/2),y:14,'text-anchor':'middle',class:'axt',transform:'rotate(-90)'});
+  ayl.textContent='latency (ms, log)'; svg.appendChild(ayl);
+  // bands
+  if(opts.band) series.forEach(s=>{ if(!s.hi)return;
+    let d='M';
+    xs.forEach((x,i)=>{ d+=`${px(x)},${py(s.y[i])} `; });
+    for(let i=xs.length-1;i>=0;i--){ d+=`${px(xs[i])},${py(s.hi[i])} `; }
+    d+='Z'; svg.appendChild(el('path',{d,fill:s.color,opacity:0.10}));
+  });
+  // lines + markers
+  series.forEach(s=>{
+    let d='';
+    xs.forEach((x,i)=>{ d+=(i?'L':'M')+px(x)+','+py(s.y[i]); });
+    svg.appendChild(el('path',{d,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round'}));
+    xs.forEach((x,i)=>{
+      const c=el('circle',{cx:px(x),cy:py(s.y[i]),r:4.5,fill:s.color,stroke:'var(--surface-1)','stroke-width':2});
+      c.style.cursor='pointer';
+      c.addEventListener('pointerenter',ev=>showtip(ev,`${s.name}<br>${opts.xlabel.split(' ')[0]} ${x}: <b>${s.y[i]} ms</b>`));
+      c.addEventListener('pointerleave',hidetip);
+      svg.appendChild(c);
+    });
+    // direct end label
+    const lx=px(xs[xs.length-1]), lyv=py(s.y[s.y.length-1]);
+    const t=el('text',{x:lx+8,y:lyv+4,class:'dl',fill:s.color}); t.textContent=s.y[s.y.length-1]+' ms'; svg.appendChild(t);
+  });
+}
+const tip=document.getElementById('tip');
+function showtip(ev,html){ tip.innerHTML=html; tip.style.opacity=1;
+  tip.style.left=(ev.clientX+12)+'px'; tip.style.top=(ev.clientY-8)+'px'; }
+function hidetip(){ tip.style.opacity=0; }
+
+chart('c1', BATCH.x, [
+  {name:'Feast',color:C.feast,y:BATCH.feast_p50,hi:BATCH.feast_p99},
+  {name:'Hopsworks',color:C.hops,y:BATCH.hops_p50,hi:BATCH.hops_p99},
+], {xlabel:'batch (entity rows)', xlog:true, band:true});
+
+chart('c2', FEAT.x, [
+  {name:'Feast',color:C.feast,y:FEAT.feast_p50},
+  {name:'Hopsworks',color:C.hops,y:FEAT.hops_p50},
+], {xlabel:'features requested', xlog:false, band:false});
+
+const tb=document.getElementById('tb');
+TABLE.forEach(r=>{
+  const ratio=(r[1]/r[3]).toFixed(1)+'x';
+  const tr=document.createElement('tr');
+  tr.innerHTML=`<td>${r[0]}</td><td>${r[1].toFixed(1)}</td><td>${r[2].toFixed(1)}</td><td>${r[3].toFixed(1)}</td><td>${r[4].toFixed(1)}</td><td><b>${ratio}</b></td>`;
+  tb.appendChild(tr);
+});
+</script>

@@ -40,4 +40,8 @@ python hops_setup.py                      # 25 FGs + 5 FVs, materialize to RonDB
 python hops_bench.py                      # -> results_hops.jsonl
 ```
 
-Results land as JSONL, one object per cell.
+Results land as JSONL, one object per cell. `report.html` is the rendered comparison (source of the shared artifact).
+
+## Security note
+
+The Redis online store must bind to `127.0.0.1` only, never `0.0.0.0`. dev0 is a shared host. An early run bound Redis on `0.0.0.0:6379` and within minutes an automated scanner hit it and injected Redis cron-injection payloads (the classic `SET` a crontab entry, `CONFIG SET dir`, `SAVE` attack pointing at a remote miner dropper). It was fully contained by rootless podman: the container Redis runs as an unprivileged user with `dir=/data` inside its own mount namespace, so it could not reach the host crontab, and the host was verified clean (no user crontab, no matching entries in `/etc/cron.d` or `/var/spool/cron`, no outbound connections, no miner process). The store now runs on `127.0.0.1:6771` with `--bind 127.0.0.1 --save '' --appendonly no`. The first Feast SDK run overlapped this window and was re-run on the clean, isolated store.
