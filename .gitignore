@@ -1,0 +1,24 @@
+# Feast fork — reference only, tracked in its own repo (MagicLex/feast)
+/feast/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+*.egg-info/
+build/
+dist/
+
+# uv
+.uv/
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+
+# Scratch
+scratch/
+*.log
