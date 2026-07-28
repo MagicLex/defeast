@@ -1,0 +1,2 @@
+{"side": "hopsworks", "rows": 100000, "features": 250, "out_shape": [100000, 300], "seconds": 53.78}
+{"side": "hopsworks", "rows": 1000000, "features": 250, "out_shape": [1000000, 300], "seconds": 108.95}

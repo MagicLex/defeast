@@ -1,0 +1,5 @@
+{"side": "feast", "rows": 100000, "features": 250, "out_shape": [100000, 252], "seconds": 48.96}
+{"side": "feast", "rows": 100000, "features": 250, "out_shape": [100000, 252], "seconds": 35.61}
+{"side": "feast", "rows": 1000000, "features": 250, "out_shape": [1000000, 252], "seconds": 370.25}
+{"side": "feast", "rows": 1000000, "features": 250, "out_shape": [1000000, 252], "seconds": 344.36}
+{"side": "feast", "rows": 10000, "features": 250, "out_shape": [10000, 252], "seconds": 5.33}

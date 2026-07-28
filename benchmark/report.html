@@ -60,13 +60,14 @@
 </style>
 
 <div class="viz-root"><div class="wrap">
-  <h1>Feast vs Hopsworks: online serving latency</h1>
-  <p class="sub">Same data, same feature model, same query sweep, one machine. Single-thread, warm, SDK path.</p>
+  <h1>Feast vs Hopsworks: online latency and offline scale</h1>
+  <p class="sub">Same data, same feature model, same query sweep, one machine.</p>
 
   <div class="verdict">
-    Hopsworks retrieves online features <b>2x to 28x faster</b> at the median, and the gap widens with load.
-    Feast's latency climbs almost linearly with batch size; RonDB stays nearly flat. And Feast had the home
-    advantage: its store (Redis) ran on localhost, Hopsworks went over the network.
+    <b>Online serving:</b> Hopsworks retrieves features 2x to 28x faster at the median, and the gap widens with load,
+    even though Feast had the home advantage (Redis on localhost, Hopsworks over the network).
+    <b>Offline training data:</b> Feast wins below ~100k rows (in-memory pandas), Hopsworks wins above and pulls away.
+    At 10M rows Feast OOM-crashes; Hopsworks has the distributed path Feast lacks.
   </div>
 
   <div class="hero-row">
@@ -97,7 +98,18 @@
   </div>
 
   <div class="card">
-    <h2>All cells</h2>
+    <h2>Offline training data: the crossover</h2>
+    <p class="cs">Time to generate a training dataset (N rows, 250 features, point-in-time join across 25 groups), log-log. Feast wins small, Hopsworks wins at scale.</p>
+    <div class="legend">
+      <span><i class="sw" style="background:var(--hops)"></i>Hopsworks (Arrow Flight)</span>
+      <span><i class="sw" style="background:var(--feast)"></i>Feast (file, pandas)</span>
+    </div>
+    <svg id="c3" viewBox="0 0 720 340" role="img" aria-label="Training data time vs rows"></svg>
+    <p class="cs" style="margin-top:10px">At 10M rows Feast OOM-crashes (no distributed fallback). Hopsworks inserts 10M across 25 groups in ~9 min; the scale path is Spark, which Feast has no equivalent of.</p>
+  </div>
+
+  <div class="card">
+    <h2>Online serving: all cells</h2>
     <p class="cs">Milliseconds. Ratio = Feast p50 / Hopsworks p50.</p>
     <table>
       <thead><tr><th>Query</th><th>Feast p50</th><th>Feast p99</th><th>Hops p50</th><th>Hops p99</th><th>Ratio p50</th></tr></thead>
@@ -174,7 +186,8 @@ function chart(svgId, xs, series, opts){
   svg.appendChild(el('line',{x1:M.l,x2:M.l+iw,y1:M.t+ih,y2:M.t+ih,class:'bl'}));
   const axl=el('text',{x:M.l+iw/2,y:H-4,'text-anchor':'middle',class:'axt'}); axl.textContent=opts.xlabel; svg.appendChild(axl);
   const ayl=el('text',{x:-(M.t+ih/2),y:14,'text-anchor':'middle',class:'axt',transform:'rotate(-90)'});
-  ayl.textContent='latency (ms, log)'; svg.appendChild(ayl);
+  ayl.textContent=opts.ylabel||'latency (ms, log)'; svg.appendChild(ayl);
+  const U=opts.unit||'ms';
   // bands
   if(opts.band) series.forEach(s=>{ if(!s.hi)return;
     let d='M';
@@ -184,19 +197,21 @@ function chart(svgId, xs, series, opts){
   });
   // lines + markers
   series.forEach(s=>{
-    let d='';
-    xs.forEach((x,i)=>{ d+=(i?'L':'M')+px(x)+','+py(s.y[i]); });
+    let d='',started=false;
+    xs.forEach((x,i)=>{ if(s.y[i]==null)return; d+=(started?'L':'M')+px(x)+','+py(s.y[i]); started=true; });
     svg.appendChild(el('path',{d,fill:'none',stroke:s.color,'stroke-width':2.5,'stroke-linejoin':'round','stroke-linecap':'round'}));
     xs.forEach((x,i)=>{
+      if(s.y[i]==null)return;
       const c=el('circle',{cx:px(x),cy:py(s.y[i]),r:4.5,fill:s.color,stroke:'var(--surface-1)','stroke-width':2});
       c.style.cursor='pointer';
-      c.addEventListener('pointerenter',ev=>showtip(ev,`${s.name}<br>${opts.xlabel.split(' ')[0]} ${x}: <b>${s.y[i]} ms</b>`));
+      c.addEventListener('pointerenter',ev=>showtip(ev,`${s.name}<br>${opts.xlabel.split(' ')[0]} ${x}: <b>${s.y[i]} ${U}</b>`));
       c.addEventListener('pointerleave',hidetip);
       svg.appendChild(c);
     });
     // direct end label
-    const lx=px(xs[xs.length-1]), lyv=py(s.y[s.y.length-1]);
-    const t=el('text',{x:lx+8,y:lyv+4,class:'dl',fill:s.color}); t.textContent=s.y[s.y.length-1]+' ms'; svg.appendChild(t);
+    let li=xs.length-1; while(li>0&&s.y[li]==null)li--;
+    const lx=px(xs[li]), lyv=py(s.y[li]);
+    const t=el('text',{x:lx+8,y:lyv+4,class:'dl',fill:s.color}); t.textContent=s.y[li]+' '+U; svg.appendChild(t);
   });
 }
 const tip=document.getElementById('tip');
@@ -213,6 +228,13 @@ chart('c2', FEAT.x, [
   {name:'Feast',color:C.feast,y:FEAT.feast_p50},
   {name:'Hopsworks',color:C.hops,y:FEAT.hops_p50},
 ], {xlabel:'features requested', xlog:false, band:false});
+
+// batch/offline crossover: rows vs seconds (log-log). Hopsworks 10k not cleanly measured -> null.
+const BATCHX=[10000,100000,1000000];
+chart('c3', BATCHX, [
+  {name:'Feast',color:C.feast,y:[5.3,35.6,344]},
+  {name:'Hopsworks',color:C.hops,y:[null,53.8,109]},
+], {xlabel:'rows (training set size)', xlog:true, ylabel:'seconds (log)', unit:'s'});
 
 const tb=document.getElementById('tb');
 TABLE.forEach(r=>{
