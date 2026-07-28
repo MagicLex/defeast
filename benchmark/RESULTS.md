@@ -1,6 +1,6 @@
 # Results: online serving latency
 
-SDK path, single-thread, warm. 300 measured calls per cell after 50 warmup, random entities over a 10k keyspace. Run on dev0 (96 cores) against a Hopsworks cluster on the same host's K8s, 2026-07-27. Raw data in `results/`.
+SDK path, single-thread, warm. 300 measured calls per cell after 50 warmup, random entities over a 10k keyspace. Run on a 96-core host against a Hopsworks cluster on the same host's Kubernetes, 2026-07-27. Raw data in `results/`.
 
 ## Headline
 

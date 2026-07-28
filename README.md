@@ -18,7 +18,7 @@ Two things live here.
 
 ## Benchmark scorecard
 
-Run on dev0 (96 cores) against a Hopsworks cluster on the same host's Kubernetes, 2026-07-27. Feast played at home: its Redis online store ran on localhost with zero network, while the Hopsworks client went over the wire to RonDB with TLS. Raw data and harness in [`benchmark/`](benchmark/).
+Measured on a single 96-core host, Feast and Hopsworks side by side, 2026-07-27. Feast played at home: its Redis online store ran on localhost with zero network, while the Hopsworks client went over the wire to RonDB with TLS. Raw data and harness in [`benchmark/`](benchmark/).
 
 | Axis | Result | Winner |
 |---|---|---|
@@ -31,7 +31,7 @@ The honest read: Feast is faster for offline training sets under ~100k rows and 
 
 ## The bridge: `import-feast`
 
-Replays a Feast feature repo into Hopsworks. It reads the Feast registry through the Feast SDK (never parses the repo's Python), maps it to a Hopsworks migration plan, and runs that plan: storage connectors, then cached feature groups with their data backfilled, then feature views built from the Feast feature services.
+Replays a Feast feature repo into Hopsworks, self-hosted or the managed [Hopsworks Serverless](https://app.hopsworks.ai) SaaS. It reads the Feast registry through the Feast SDK (never parses the repo's Python), maps it to a Hopsworks migration plan, and runs that plan: storage connectors, then cached feature groups with their data backfilled, then feature views built from the Feast feature services.
 
 Feast and hsfs have conflicting dependencies and never share an environment, so the flow is two steps with a plan JSON as the interface. Plan on the Feast side, execute on the Hopsworks side. You can also plan on one machine and execute on another.
 
@@ -47,7 +47,7 @@ import-feast execute plan.json --host <host> --project <project> --api-key-file 
 
 `plan` writes nothing to Hopsworks. It prints, in create order, the connectors, feature groups (mapped types and backfill), and feature views, with a warning at every point that needs a human decision (TTL semantics, on-demand UDF translation, stream aggregations, credentials, dedup, unsupported sources). Read it before you execute.
 
-### What it covers, validated against dev0
+### What it covers, validated against a live Hopsworks cluster
 
 - Batch feature views over `FileSource` become cached feature groups, backfilled from the source parquet.
 - Feast feature services become Hopsworks feature views (the join over the underlying groups).
