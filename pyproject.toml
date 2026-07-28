@@ -3,7 +3,13 @@ name = "import-feast"
 version = "0.1.0"
 description = "Replay a Feast feature repo into Hopsworks feature groups and feature views"
 requires-python = ">=3.9"
-dependencies = ["feast", "pyarrow"]
+dependencies = ["pyarrow"]
+
+# feast and hopsworks have conflicting dependencies and never share an environment.
+# Install the plan side in a Feast env, the execute side in a Hopsworks env.
+[project.optional-dependencies]
+plan = ["feast"]
+execute = ["hopsworks", "pandas"]
 
 [project.scripts]
 import-feast = "import_feast.cli:main"

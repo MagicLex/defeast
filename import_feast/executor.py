@@ -18,6 +18,27 @@ _HIVE_TO_PANDAS = {
     "boolean": "bool",
 }
 
+# numpy int/bool cannot hold nulls; a nullable Feast feature keeps them as NaN in the
+# parquet. Fall back to the pandas nullable dtype so the declared type still holds.
+_NULLABLE = {
+    "int8": "Int8",
+    "int16": "Int16",
+    "int32": "Int32",
+    "int64": "Int64",
+    "bool": "boolean",
+}
+
+
+def _coerce(series, htype: str):
+    """Cast a backfill column to the plan's declared type. Uses a pandas nullable dtype
+    when the column has nulls and the target is integer/bool (numpy cannot hold them)."""
+    target = _HIVE_TO_PANDAS.get(htype)
+    if target is None or str(series.dtype) == target:
+        return series
+    if target in _NULLABLE and series.isna().any():
+        return series.astype(_NULLABLE[target])
+    return series.astype(target)
+
 
 def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_statistics: bool = False) -> dict:
     import hopsworks
@@ -66,8 +87,8 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
         # schema-compat passes. Feast guarantees values fit the declared type; a cast
         # that overflows means the source Feast schema is itself inconsistent, so let it raise.
         for fname, htype in fg["features"]:
-            if fname in df.columns and htype in _HIVE_TO_PANDAS and str(df[fname].dtype) != _HIVE_TO_PANDAS[htype]:
-                df[fname] = df[fname].astype(_HIVE_TO_PANDAS[htype])
+            if fname in df.columns:
+                df[fname] = _coerce(df[fname], htype)
         cols: list[str] = []
         wanted = list(fg["primary_key"]) + ([fg["event_time"]] if fg["event_time"] else []) + [f[0] for f in fg["features"]]
         for c in wanted:
@@ -77,11 +98,12 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
         log(f"FG {fg['name']}: created + backfilled {len(df)} rows, {len(cols)} columns")
         result["feature_groups"].append(fg["name"])
 
+    fg_version = {fg["name"]: fg["version"] for fg in plan.get("feature_groups", [])}
     for fv in plan.get("feature_views", []):
-        base = fs.get_feature_group(fv["base_fg"], 1)
+        base = fs.get_feature_group(fv["base_fg"], fg_version.get(fv["base_fg"], 1))
         q = base.select(fv["selects"].get(fv["base_fg"], []))
         for i, j in enumerate(fv["joins"]):
-            right = fs.get_feature_group(j["right_fg"], 1)
+            right = fs.get_feature_group(j["right_fg"], fg_version.get(j["right_fg"], 1))
             # A prefix avoids event-time / non-key column collisions across joined groups.
             prefix = j.get("prefix") or f"r{i}_"
             q = q.join(right.select(fv["selects"].get(j["right_fg"], [])), on=j["on"], prefix=prefix)

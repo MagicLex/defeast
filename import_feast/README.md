@@ -4,8 +4,12 @@ One-shot bridge that replays a Feast feature repo into Hopsworks feature groups 
 
 ## Status
 
-- **Slice 0, planner (done)**: reads a Feast repo through the Feast SDK registry, maps it to a Hopsworks plan, prints it, and can save it as JSON. Writes nothing to Hopsworks.
-- **Slice 1, executor (done)**: runs a saved plan against Hopsworks. Creates cached feature groups, backfills their data from the FileSource parquet, and creates the feature views. Validated end to end: a migrated store returns `get_feature_vector` values identical to the source Feast repo.
+- **Planner (done)**: reads a Feast repo through the Feast SDK registry, maps it to a Hopsworks plan, prints it, and can save it as JSON. Writes nothing to Hopsworks.
+- **Executor (done)**: runs a saved plan against Hopsworks. Creates cached feature groups with an explicit schema, backfills their data from the FileSource parquet, and creates the feature views. Validated end to end against a live cluster:
+  - lossless: a migrated store returns `get_feature_vector` values identical to the source Feast repo.
+  - type fidelity: a Feast `Int32`/`Float32` migrates as `int`/`float`, not the `bigint`/`double` parquet inference would give. The backfill is coerced to the declared type.
+  - nullable features are preserved (a null `Int32` stays a typed-int column with its nulls).
+  - idempotent: re-running `execute` upserts on the primary key, no row duplication.
 - Next: warehouse sources (connectors + external FGs), on-demand transforms, streaming.
 
 ## Why two commands
@@ -15,12 +19,12 @@ Feast and hsfs have conflicting dependencies and cannot share one environment. T
 ## Use
 
 ```
-pip install -e .              # exposes the import-feast command
-
-# 1. read the Feast repo, print and save the plan (feast environment)
+# 1. read the Feast repo, print and save the plan   (Feast environment)
+pip install -e '.[plan]'
 import-feast plan <feast_repo> -o plan.json
 
-# 2. run it against Hopsworks (hsfs environment)
+# 2. run it against Hopsworks                        (Hopsworks environment)
+pip install -e '.[execute]'
 import-feast execute plan.json --host <host> --project <project> --api-key-file <file> [--no-statistics]
 ```
 
