@@ -71,9 +71,9 @@ The bridge surfaces these in the plan; it never guesses silently.
 
 Each slice is independently useful and testable against a real Feast repo (the benchmark repos in `benchmark/feast_repo` and the fork's `examples/` are ready fixtures).
 
-## Open questions for Lex
+## Decisions (locked)
 
-1. Bridge home: a standalone CLI in this repo, or folded into the `hops` CLI as `hops import-feast`?
-2. "No loss" default: definitions + data backfill (my assumption), or definitions only with a separate backfill step?
-3. Build order: Slice 0 + 1 first (dry-run planner then MVP replay), or straight to MVP?
-4. Fork vs vanilla: target upstream Feast semantics and degrade the fork-only fields, or support the fork's extra types (`Struct`/`Set`/vector) too?
+1. **Home**: standalone CLI in this repo (`import-feast`). Not folded into `hops` yet.
+2. **No loss**: definitions + data backfill is the default. The bridge populates the Hopsworks store, not just defines it. Slice 0 (dry-run) shows the backfill it would run without executing it.
+3. **Build order**: Slice 0 (dry-run planner) first, then Slice 1 (MVP replay).
+4. **Target**: vanilla upstream Feast first. Fork-only fields (lifecycle `state`, versioning, derived `source_views`, `Struct`/`Set` types, `LabelView`, tiling, Permissions) degrade with a note, not supported in the first pass.
