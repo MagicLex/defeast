@@ -127,7 +127,21 @@
     </ul>
   </div>
 
-  <p class="foot">300 measured calls per cell after 50 warmup, random entities over a 10k keyspace, 250 int64 features in 25 groups of 10. Run on a 96-core host, 2026-07-27.</p>
+  <div class="card">
+    <h2>The four claims, tested</h2>
+    <p class="cs">What people say Feast is good at, measured against Hopsworks on the same cluster.</p>
+    <table>
+      <thead><tr><th>Feast claim</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Low-latency online serving</td><td>Hopsworks 2x to 28x faster at p50, and it holds under batch where Feast collapses</td></tr>
+        <tr><td>Fast offline / training data</td><td>Feast wins below ~100k rows, Hopsworks 3.2x faster at 1M, Feast OOM-crashes at 10M</td></tr>
+        <tr><td>Point-in-time correctness</td><td>Table-stakes: both leak-free. Not a Feast edge. Feast silently drops before-event rows</td></tr>
+        <tr><td>Feature reusability</td><td>Read-level reuse is parity. Lineage, sharing and governance are native in Hopsworks, absent in Feast OSS</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">Online: 300 calls per cell after 50 warmup, single-thread, warm. Offline: N unique entities, 250 features in 25 groups, point-in-time join. One host (96 cores) against a co-located Hopsworks cluster, 2026-07-27. Feast played at home on localhost Redis; Hopsworks went over the network and still won.</p>
 </div></div>
 
 <div class="tip" id="tip"></div>
