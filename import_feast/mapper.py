@@ -114,11 +114,19 @@ def _map_batch_fv(fv, entities: dict, repo_path: str):
         htype, _ = feast_type_to_hopsworks(f.dtype)
         if f.name not in [c[0] for c in features]:
             features.insert(0, (f.name, htype))
+    # the event-time column is part of the FG schema; carry it so the executor can
+    # declare the schema explicitly instead of letting parquet inference decide.
+    if event_time and event_time not in [c[0] for c in features]:
+        features.append((event_time, "timestamp"))
 
     conn = None
     if src_cls == "FileSource":
         external = False
-        backfill = Backfill("file", _source_ref(src), _est_rows(_source_ref(src), repo_path))
+        # Resolve to an absolute path so the plan is self-contained: the executor runs
+        # in a separate env with a different CWD and cannot resolve a repo-relative path.
+        ref = _source_ref(src)
+        ref = ref if os.path.isabs(ref) else os.path.join(repo_path, ref)
+        backfill = Backfill("file", ref, _est_rows(ref, repo_path))
     elif src_cls in _CONNECTOR:
         external = True
         backfill = Backfill("external", _source_ref(src))

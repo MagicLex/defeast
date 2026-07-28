@@ -4,10 +4,25 @@ parquet directly with pandas, so it needs hsfs but not feast."""
 
 from __future__ import annotations
 
+# Hopsworks (Hive) type -> numpy dtype, to coerce the backfill dataframe to the plan's
+# declared schema before insert. A Feast Int32 feature is commonly stored as parquet
+# int64; without coercion hsfs rejects the insert (declared 'int' vs derived 'bigint').
+# Only primitives are cast; string/binary/timestamp/array/decimal are left as read.
+_HIVE_TO_PANDAS = {
+    "tinyint": "int8",
+    "smallint": "int16",
+    "int": "int32",
+    "bigint": "int64",
+    "float": "float32",
+    "double": "float64",
+    "boolean": "bool",
+}
+
 
 def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_statistics: bool = False) -> dict:
     import hopsworks
     import pandas as pd
+    from hsfs.feature import Feature
 
     result = {"connectors_manual": [], "feature_groups": [], "feature_views": [], "skipped": []}
 
@@ -28,12 +43,16 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
             log(f"external FG {fg['name']}: needs its storage connector, skipped (create by hand)")
             result["skipped"].append(fg["name"])
             continue
+        # Declare the schema from the plan's mapped Hopsworks types, so migration
+        # fidelity (Int32->int, Decimal->string, Set->array) is honored instead of
+        # being re-inferred from the backfill parquet at insert time.
         kwargs = dict(
             name=fg["name"],
             version=fg["version"],
             primary_key=fg["primary_key"],
             event_time=fg["event_time"],
             online_enabled=fg["online_enabled"],
+            features=[Feature(name=n, type=t) for n, t in fg["features"]],
         )
         if no_statistics:
             kwargs["statistics_config"] = {"enabled": False}
@@ -43,6 +62,12 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
         df = pd.read_parquet(bf["ref"])
         if bf.get("field_mapping"):
             df = df.rename(columns=bf["field_mapping"])
+        # Coerce to the plan's declared types so migrated fidelity holds and hsfs
+        # schema-compat passes. Feast guarantees values fit the declared type; a cast
+        # that overflows means the source Feast schema is itself inconsistent, so let it raise.
+        for fname, htype in fg["features"]:
+            if fname in df.columns and htype in _HIVE_TO_PANDAS and str(df[fname].dtype) != _HIVE_TO_PANDAS[htype]:
+                df[fname] = df[fname].astype(_HIVE_TO_PANDAS[htype])
         cols: list[str] = []
         wanted = list(fg["primary_key"]) + ([fg["event_time"]] if fg["event_time"] else []) + [f[0] for f in fg["features"]]
         for c in wanted:

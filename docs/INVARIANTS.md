@@ -14,6 +14,8 @@ Architectural contracts. Verify before merging any significant change. Each item
 - **Feast and hsfs never load in one process.** PASS. `plan` imports feast, `execute` imports hsfs and reads the backfill parquet with pandas. The plan JSON is the only shared artifact.
 - **The reader uses the Feast SDK registry, never parses `.py`.** PASS. `mapper.build_plan` calls `store.list_*`.
 - **Migration is lossless at the feature level.** PASS. A migrated store returned `get_feature_vector(svc_ab, entity 3) = [370, 463, 223, 606, 285, 340]`, identical to the source parquet's `feat_0..5`.
+- **Migrated FG schema carries Feast's declared types, not parquet inference.** PASS. The executor declares the FG schema from the plan's mapped types and coerces the backfill to them. On a `Feast Int32`/`Float32` feature over an int64/float64 parquet, the migrated FG is `int`/`float`; the old inference path gave `bigint`/`double`. The event-time column is carried in the schema as `timestamp`.
+- **The plan is self-contained: backfill paths are absolute.** PASS. The mapper resolves a FileSource path against the repo before writing the plan, so the executor (separate env, different CWD) reads the right parquet. Verified on a repo with a repo-relative `data/d.parquet` source.
 - **Every human-decision point surfaces as a warning before execute.** PASS. TTL, credentials, dedup, UDF, stream, and unsupported sources emit warnings in the plan.
 
 ## Infrastructure
