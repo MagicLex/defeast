@@ -141,6 +141,7 @@ def _map_batch_fv(fv, entities: dict, repo_path: str):
     if getattr(src, "created_timestamp_column", None):
         warnings.append(Warning(fv.name, "dedup", f"created_timestamp_column '{src.created_timestamp_column}' needs HUDI (hudi_precombine_key); DELTA default changes dedup tiebreak"))
     if getattr(src, "field_mapping", None):
+        backfill.field_mapping = dict(src.field_mapping)
         warnings.append(Warning(fv.name, "type", f"source field_mapping {dict(src.field_mapping)} applied during backfill"))
 
     fg = FeatureGroupOp(

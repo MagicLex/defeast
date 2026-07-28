@@ -79,24 +79,61 @@ def print_plan(plan: MigrationPlan) -> None:
     print("\ndry run, nothing written to Hopsworks.")
 
 
-def main(argv=None) -> int:
-    ap = argparse.ArgumentParser(
-        prog="import-feast",
-        description="Replay a Feast feature repo into Hopsworks. Slice 0: print the migration plan (dry run).",
-    )
-    ap.add_argument("repo", help="path to a Feast feature repo (a directory with feature_store.yaml)")
-    ap.add_argument("--dry-run", action="store_true", default=True, help="print the plan without writing (the only mode in slice 0)")
-    args = ap.parse_args(argv)
+def _cmd_plan(args) -> int:
+    from . import plan as plan_mod
 
     try:
         store = _load_store(args.repo)
     except Exception as e:
         print(f"error: could not load Feast repo at {args.repo}: {e}", file=sys.stderr)
         return 2
-
     plan = build_plan(store, args.repo)
     print_plan(plan)
+    if args.out:
+        plan_mod.dump(plan, args.out)
+        print(f"\nplan written to {args.out} (run: import-feast execute {args.out} ...)")
     return 0
+
+
+def _cmd_execute(args) -> int:
+    import os
+
+    from . import plan as plan_mod
+    from .executor import execute
+
+    api_key = args.api_key or (open(args.api_key_file).read().strip() if args.api_key_file else os.environ.get("HOPSWORKS_API_KEY"))
+    if not api_key:
+        print("error: no API key (pass --api-key, --api-key-file, or set HOPSWORKS_API_KEY)", file=sys.stderr)
+        return 2
+    plan = plan_mod.load(args.plan)
+    execute(plan, host=args.host, port=args.port, project=args.project, api_key=api_key, no_statistics=args.no_statistics)
+    return 0
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="import-feast",
+        description="Replay a Feast feature repo into Hopsworks feature groups and feature views.",
+    )
+    sub = ap.add_subparsers(dest="cmd", required=True)
+
+    p = sub.add_parser("plan", help="read a Feast repo and print (optionally save) the migration plan. Needs the feast package.")
+    p.add_argument("repo", help="path to a Feast feature repo (a directory with feature_store.yaml)")
+    p.add_argument("-o", "--out", help="save the plan as JSON for the executor")
+    p.set_defaults(func=_cmd_plan)
+
+    e = sub.add_parser("execute", help="run a saved plan against Hopsworks. Needs hsfs, not feast.")
+    e.add_argument("plan", help="a plan JSON produced by 'import-feast plan -o'")
+    e.add_argument("--host", required=True)
+    e.add_argument("--port", type=int, default=443)
+    e.add_argument("--project", required=True)
+    e.add_argument("--api-key")
+    e.add_argument("--api-key-file")
+    e.add_argument("--no-statistics", action="store_true", help="disable FG statistics jobs (lighter on the cluster)")
+    e.set_defaults(func=_cmd_execute)
+
+    args = ap.parse_args(argv)
+    return args.func(args)
 
 
 if __name__ == "__main__":

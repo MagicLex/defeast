@@ -4,6 +4,8 @@ The dry-run planner builds and prints it; the executor (later slice) runs it."""
 
 from __future__ import annotations
 
+import dataclasses
+import json
 from dataclasses import dataclass, field
 from typing import Optional
 
@@ -28,6 +30,7 @@ class Backfill:
     kind: str  # "file" (read + insert into cached FG) | "external" (lazy, external FG)
     ref: str  # path, or table/query
     est_rows: Optional[int] = None
+    field_mapping: dict = field(default_factory=dict)  # source column -> feature name
 
 
 @dataclass
@@ -80,3 +83,16 @@ class MigrationPlan:
         for fv in self.feature_views:
             w += fv.warnings
         return w
+
+
+def dump(plan: MigrationPlan, path: str) -> None:
+    """Serialize a plan to JSON. The plan is the interface between the Feast reader
+    (needs the feast package) and the Hopsworks executor (needs hsfs); the two have
+    conflicting dependencies and run in separate environments."""
+    with open(path, "w") as f:
+        json.dump(dataclasses.asdict(plan), f, indent=2)
+
+
+def load(path: str) -> dict:
+    with open(path) as f:
+        return json.load(f)
