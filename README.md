@@ -20,6 +20,8 @@ Two things live here.
 
 Measured on a single 96-core host, Feast and Hopsworks side by side, 2026-07-27. Feast played at home: its Redis online store ran on localhost with zero network, while the Hopsworks client went over the wire to RonDB with TLS. Raw data and harness in [`benchmark/`](benchmark/).
 
+![Online serving latency, Feast vs Hopsworks](benchmark/img/online_latency.png)
+
 | Axis | Result | Winner |
 |---|---|---|
 | **Online serving latency** (SDK, p50) | 2.1x at 1 row / 50 feats, up to 27.9x at 100 rows. RonDB stays flat, Feast climbs with load. Confirmed at the HTTP median too. | **Hopsworks** |
@@ -27,7 +29,7 @@ Measured on a single 96-core host, Feast and Hopsworks side by side, 2026-07-27.
 | **Point-in-time correctness** | Both leak-free, 0 future leakage on either. Table stakes, not a differentiator. | **tie** |
 | **Reusability** | Read-level reuse is parity. Reverse lineage, model-to-feature provenance, cross-team sharing, RBAC are native in Hopsworks, absent from Feast's OSS default. | **Hopsworks** |
 
-The honest read: Feast is faster for offline training sets under ~100k rows and simpler to start with no infrastructure. On online latency at any real load, on offline at production scale, and on governed reuse, Hopsworks wins. Full method, contaminated-run discards, and per-axis detail in [`benchmark/`](benchmark/) and [`docs/claims-teardown.md`](docs/claims-teardown.md).
+The honest read: Feast is faster for offline training sets under ~100k rows and simpler to start with no infrastructure. On online latency at any real load, on offline at production scale, and on governed reuse, Hopsworks wins. Charts, per-axis detail, and contaminated-run discards in [`benchmark/README.md`](benchmark/README.md) and [`docs/claims-teardown.md`](docs/claims-teardown.md).
 
 ## The bridge: `import-feast`
 
