@@ -16,7 +16,7 @@ Last updated: 2026-07-28.
 - `docs/import-feast-scoping.md`: bridge mapping matrix, architecture, slices, locked decisions.
 - Bridge slice 0 (planner) and slice 1 (executor), validated lossless. `import_feast/`.
 - Bridge: explicit feature-type schema on FG creation. The executor declares the FG schema from the plan's mapped types and coerces the backfill dataframe to them, instead of letting parquet inference decide. Proven on a divergent case (Feast `Int32`/`Float32` over an int64/float64 parquet): inference gave `bigint`/`double`, the fix gives `int`/`float`. Also fixed a relative-backfill-path bug (the plan stores an absolute FileSource path, self-contained for the executor's separate CWD).
-- Bridge hardening, full end-to-end validation against dev0/`feast_bench`:
+- Bridge hardening, full end-to-end validation against a live cluster (`feast_bench`):
   - nullable features handled: a null `Int32` coerces to a pandas nullable dtype, stays a typed-`int` column with its nulls (4/20 nulls preserved on insert + read-back).
   - version threading: the executor reads each FG's version from the plan for feature-view joins instead of the hardcoded `1`.
   - idempotency verified: re-running `execute` upserts on the primary key (500 rows stayed 500), no duplication, lossless stable.

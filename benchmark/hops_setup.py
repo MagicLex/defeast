@@ -1,3 +1,4 @@
+import os
 """Hopsworks side of the Feast-vs-Hopsworks benchmark.
 Mirrors feast-benchmarks: 25 feature groups x 10 features, entity pk, 5 feature views (50..250 features).
 Same generated_data.parquet as the Feast side."""
@@ -5,7 +6,7 @@ import time, sys
 import pandas as pd
 import hopsworks
 
-KEY = open("/home/lex/.hw_bench_key").read().strip()
+KEY = open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
 DATA = "/home/lex/feast-bench/generated_data.parquet"
 NUM_FG = 25
 FEATS_PER_FG = 10
@@ -15,7 +16,7 @@ def log(m): print(f"[{time.strftime('%H:%M:%S')}] {m}", flush=True)
 df = pd.read_parquet(DATA)
 log(f"data {df.shape}, entities unique={df.entity.nunique()}")
 
-proj = hopsworks.login(host="10.113.154.130", port=443, project="feast_bench", api_key_value=KEY)
+proj = hopsworks.login(host=os.environ["HOPSWORKS_HOST"], port=443, project="feast_bench", api_key_value=KEY)
 fs = proj.get_feature_store()
 log(f"connected fs={fs.name}")
 

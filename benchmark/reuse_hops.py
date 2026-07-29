@@ -1,8 +1,9 @@
+import os
 """Feature reusability on Hopsworks: define a feature group once, reuse its features across
 multiple feature views with no recompute, then show lineage (which FVs consume the FG)."""
 import time, pandas as pd, numpy as np, hopsworks
-KEY=open("/home/lex/.hw_bench_key").read().strip()
-proj=hopsworks.login(host="10.113.154.130",port=443,project="feast_bench",api_key_value=KEY)
+KEY=open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
+proj=hopsworks.login(host=os.environ["HOPSWORKS_HOST"],port=443,project="feast_bench",api_key_value=KEY)
 fs=proj.get_feature_store(); japi=proj.get_job_api()
 def njobs(): return len(japi.get_jobs())
 

@@ -1,3 +1,4 @@
+import os
 """Hopsworks offline (batch/training data) benchmark. Setup: 25 offline-only FGs +
 1 FV joining them, unique entities from big_N.parquet. Bench: time get_batch_data (N rows,
 250 feats, 25-FG PIT join). Reuses FGs if present. Appends JSONL.
@@ -6,8 +7,8 @@ import sys, time, json
 import pandas as pd, hopsworks
 
 N = int(sys.argv[1]); PARQUET = sys.argv[2]; MODE = sys.argv[3] if len(sys.argv) > 3 else "both"
-KEY = open("/home/lex/.hw_bench_key").read().strip()
-proj = hopsworks.login(host="10.113.154.130", port=443, project="feast_bench", api_key_value=KEY)
+KEY = open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
+proj = hopsworks.login(host=os.environ["HOPSWORKS_HOST"], port=443, project="feast_bench", api_key_value=KEY)
 fs = proj.get_feature_store()
 tag = f"b{N}"
 

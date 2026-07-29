@@ -21,5 +21,5 @@ Architectural contracts. Verify before merging any significant change. Each item
 
 ## Infrastructure
 
-- **Services bind to localhost only.** PASS after an incident. dev0 is internet-facing with no host firewall; an early Redis on `0.0.0.0:6379` was hit by a scanner and moved to `127.0.0.1:6771`. Never bind `0.0.0.0` on dev0.
+- **Services bind to localhost only.** PASS after an incident. The benchmark host is internet-facing with no host firewall; an early Redis on `0.0.0.0:6379` was hit by a scanner and moved to `127.0.0.1:6771`. Never bind `0.0.0.0` on a shared host.
 - **The dev cluster is left as found.** PASS. Memory freed for Spark runs (scaled-down deployments, `hopsworks-instance` to 1) was restored to original replica counts; RSS requests reverted.

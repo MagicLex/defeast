@@ -1,9 +1,10 @@
+import os
 """Hopsworks PIT correctness without Spark spine: probe get_batch_data(end_time=T) per label,
 verify latest-as-of-T value per entity vs ground truth, and check the before-first null behavior."""
 import json
 import pandas as pd, hopsworks
-KEY=open("/home/lex/.hw_bench_key").read().strip()
-proj=hopsworks.login(host="10.113.154.130",port=443,project="feast_bench",api_key_value=KEY)
+KEY=open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
+proj=hopsworks.login(host=os.environ["HOPSWORKS_HOST"],port=443,project="feast_bench",api_key_value=KEY)
 fs=proj.get_feature_store()
 hist=pd.read_parquet("/tmp/pit_hist.parquet")
 fg=fs.get_or_create_feature_group(name="pit_hist2",version=1,primary_key=["entity"],

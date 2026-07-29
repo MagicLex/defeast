@@ -6,8 +6,8 @@ import os
 from fastapi import FastAPI, Request
 import hopsworks
 
-KEY = open("/home/lex/.hw_bench_key").read().strip()
-proj = hopsworks.login(host="10.113.154.130", port=443, project="feast_bench", api_key_value=KEY)
+KEY = open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
+proj = hopsworks.login(host=os.environ["HOPSWORKS_HOST"], port=443, project="feast_bench", api_key_value=KEY)
 fs = proj.get_feature_store()
 # feature_service_N (Feast) -> fv_{50*(N+1)} (Hopsworks): N=0->50 .. N=4->250
 FVS = {n: fs.get_feature_view(f"fv_{50*(n+1)}", version=1) for n in range(5)}

@@ -25,3 +25,4 @@ scratch/
 
 # Feast benchmarks fork (MagicLex/feast-benchmarks), tracked in its own repo
 /feast-benchmarks/
+docs/OPS.md

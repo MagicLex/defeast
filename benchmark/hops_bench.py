@@ -1,3 +1,4 @@
+import os
 """Hopsworks SDK-level online latency benchmark. Single-thread, warm.
 Same sweep + format as feast_bench.py. Emits JSONL."""
 import time, json
@@ -7,8 +8,8 @@ import hopsworks
 KEYSPACE = 10**4
 WARMUP = 50
 N = 300
-KEY = open("/home/lex/.hw_bench_key").read().strip()
-proj = hopsworks.login(host="10.113.154.130", port=443, project="feast_bench", api_key_value=KEY)
+KEY = open(os.environ.get("HOPSWORKS_API_KEY_FILE", os.path.expanduser("~/.hw_bench_key"))).read().strip()
+proj = hopsworks.login(host=os.environ["HOPSWORKS_HOST"], port=443, project="feast_bench", api_key_value=KEY)
 fs = proj.get_feature_store()
 FVS = {f: fs.get_feature_view(f"fv_{f}", version=1) for f in [50,100,150,200,250]}
 for fv in FVS.values():
