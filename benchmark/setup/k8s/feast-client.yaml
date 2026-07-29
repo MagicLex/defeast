@@ -23,7 +23,10 @@ spec:
           image: python:3.11
           command: ["sleep", "infinity"]
           resources:
-            requests: { cpu: "500m", memory: "1Gi" }
+            # Tiny requests so it schedules into the node's thin reservation headroom
+            # (the platform reserves ~97%, but the node is idle in practice). Real
+            # throughput comes from the limits on an otherwise-idle box.
+            requests: { cpu: "150m", memory: "512Mi" }
             limits: { cpu: "4", memory: "3Gi" }
           env:
             - name: REDIS_HOST
