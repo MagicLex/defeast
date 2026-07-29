@@ -1,0 +1,30 @@
+# The Feast client, in-cluster, pinned to lex-worker-2 alongside its Redis and RonDB,
+# so Feast and Hopsworks are measured from the same node with their stores equally
+# local. Full python image for the same build-tools reason as the Hopsworks client.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feast-client
+  namespace: defeast-bench
+  labels: { app: feast-client, part-of: defeast-bench }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: feast-client }
+  template:
+    metadata:
+      labels: { app: feast-client }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: lex-worker-2
+      containers:
+        - name: client
+          image: python:3.11
+          command: ["sleep", "infinity"]
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits: { cpu: "4", memory: "3Gi" }
+          env:
+            - name: REDIS_HOST
+              value: "redis.defeast-bench.svc.cluster.local:6379"

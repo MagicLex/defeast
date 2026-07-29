@@ -1,0 +1,38 @@
+# Feast's online store, in-cluster, pinned to the same node as the Feast client and
+# RonDB (lex-worker-2), so the Feast read path is same-node loopback, symmetric with
+# the Hopsworks read path. ClusterIP only, never a NodePort: the store stays on the
+# cluster network, not exposed.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: redis
+  namespace: defeast-bench
+  labels: { app: redis, part-of: defeast-bench }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector:
+    matchLabels: { app: redis }
+  template:
+    metadata:
+      labels: { app: redis }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: lex-worker-2
+      containers:
+        - name: redis
+          image: redis:7
+          args: ["--save", "", "--appendonly", "no"]
+          ports: [{ containerPort: 6379 }]
+          resources:
+            requests: { cpu: "250m", memory: "512Mi" }
+            limits: { cpu: "2", memory: "2Gi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: redis
+  namespace: defeast-bench
+spec:
+  selector: { app: redis }
+  ports: [{ port: 6379, targetPort: 6379 }]
