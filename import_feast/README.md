@@ -10,7 +10,7 @@ One-shot bridge that replays a Feast feature repo into Hopsworks feature groups 
   - type fidelity: a Feast `Int32`/`Float32` migrates as `int`/`float`, not the `bigint`/`double` parquet inference would give. The backfill is coerced to the declared type.
   - nullable features are preserved (a null `Int32` stays a typed-int column with its nulls).
   - idempotent: re-running `execute` upserts on the primary key, no row duplication.
-- **Serverless**: the executor logs in with the standard `hopsworks` client (`--host` + project-scoped API key), so the managed [Serverless](https://app.hopsworks.ai) deployment uses the same path and should behave the same. Not yet run end to end there; supported-not-yet-verified until a Serverless run is posted.
+- **SaaS**: the executor logs in with the standard `hopsworks` client (`--host` + project-scoped API key), so the [Hopsworks SaaS](https://app.hopsworks.ai) deployment uses the same path and should behave the same. Not yet run end to end there; supported-not-yet-verified until a SaaS run is posted.
 - Next: warehouse sources (connectors + external FGs), on-demand transforms, streaming.
 
 ## Why two commands

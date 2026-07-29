@@ -69,7 +69,7 @@ import-feast execute plan.json --host <host> --project <project> --api-key-file 
 
 **What it flags but does not yet run.** If your repo reads from a warehouse (BigQuery, Snowflake, Redshift), a stream (Kafka), or has on-demand UDF transforms, the plan shows you the connectors and the warnings, and stops short of building them. Those are the next slices, and I would rather ship them tested against a real warehouse than guess. So for a FileSource repo it is one command each way; for the rest you get a plan and a short list of things to wire by hand.
 
-**Which Hopsworks it runs against.** The `execute` side logs in with the standard `hopsworks` client, so anything that client reaches works: pass `--host` and a project-scoped API key. The end-to-end validation above was run against a **self-hosted** cluster. The managed [Serverless](https://app.hopsworks.ai) path uses the exact same login and should behave the same, but has not yet been run end to end, so treat it as supported-not-yet-verified until a Serverless run is posted here.
+**Which Hopsworks it runs against.** The `execute` side logs in with the standard `hopsworks` client, so anything that client reaches works: pass `--host` and a project-scoped API key. The end-to-end validation above was run against a **self-hosted** cluster. The [Hopsworks SaaS](https://app.hopsworks.ai) path uses the exact same login and should behave the same, but has not yet been run end to end, so treat it as supported-not-yet-verified until a SaaS run is posted here.
 
 ## What's in here
 

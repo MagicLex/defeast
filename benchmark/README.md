@@ -12,7 +12,13 @@ Hopsworks retrieves online features 4.9x to 21.8x faster at the median, and the 
 
 The tail is the part an online SLA is written against, and it tracks the median: at a single row Feast is 10.9 ms p99 against Hopsworks 2.6 ms, and at a hundred rows 523.9 ms against 17.0 ms. The full p50/p99 table per query is in [`latency/RESULTS.md`](latency/RESULTS.md).
 
+![Tail latency, p50 vs p99](img/tail_latency.png)
+
 Under concurrent load (open-loop, matched 4-worker servers), Hopsworks sustains 456 rps with zero failures and a 520 ms median, where `feast serve` saturates near 116 rps and its tail collapses to an 18 s p99. That is 3.9x the throughput under identical conditions. Detail: [`throughput/RESULTS.md`](throughput/RESULTS.md).
+
+![Throughput under load, achieved rps and p99](img/throughput.png)
+
+The lines are the per-10s achieved rate and tail over the ramp: Hopsworks follows the load up while Feast plateaus, and Feast's p99 climbs to 18 s where Hopsworks stays near 1.8 s. The 456 vs 116 rps headline figures are the whole-run averages.
 
 ## Offline training data
 
