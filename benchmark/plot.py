@@ -34,12 +34,14 @@ fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2), dpi=150)
 bx = [1, 10, 25, 50, 100]
 a.plot(bx, [5.64, 28.97, 64.45, 126.70, 253.05], color=FEAST, label="Feast (Redis, localhost)", **MARK)
 a.plot(bx, [2.68, 3.61, 4.68, 6.17, 9.08], color=HOPS, label="Hopsworks (RonDB, over network)", **MARK)
-a.set_xscale("log"); a.set_yscale("log"); a.set_xticks(bx)
+# Linear y on purpose: a log y-axis compresses the gap and flatters Feast. Linear
+# shows the truth, Feast climbs to 253 ms while RonDB stays flat near the axis.
+a.set_xscale("log"); a.set_xticks(bx)
 a.get_xaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}"))
-a.get_yaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}" if v >= 1 else f"{v:g}"))
+a.set_ylim(bottom=0)
 a.set_title("Online latency vs batch size", fontweight="bold", fontsize=12, pad=10, loc="left")
-a.set_xlabel("entity rows per request"); a.set_ylabel("p50 latency (ms, log)")
-a.annotate("27.9x", xy=(100, 253.05), ha="right", va="bottom", color=FEAST, fontweight="bold", fontsize=11)
+a.set_xlabel("entity rows per request"); a.set_ylabel("p50 latency (ms)")
+a.annotate("Feast 27.9x slower\nat batch 100", xy=(1.2, 232), ha="left", va="top", color=FEAST, fontweight="bold", fontsize=11)
 style(a); a.legend(frameon=False, fontsize=9.5, loc="upper left")
 
 fx = [50, 100, 150, 200, 250]
