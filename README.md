@@ -12,11 +12,14 @@
 
 ---
 
-Feast is where most teams meet a feature store for the first time. You pip install it, point it at a parquet file, and you are serving features by the afternoon. That part is real, and nothing here pretends otherwise.
+Feast is where most teams meet a feature store for the first time. You pip install it and after a few hours you have a feature store. This is a legitimate entry point towards the feature store space. Yet, while Feast has many interesting attributes, it is also unvolentarly setting the standard for the feature stores - as in; this is what users think is standard-. And the field is much wider and wilder than this single open source project.
 
-So this repo does two things with that. It measures Feast against Hopsworks on the four things people actually credit Feast for, on one machine, with Feast handed every advantage. And it ships `import-feast`, a bridge that reads a Feast repo and rebuilds it inside Hopsworks with the data carried across, so leaving Feast is one command and not a rewrite.
+So, here in this repo we do two things with that. First we measure Feast against (our, biased, obviously) Hopsworks on the four things people actually care to have a feature store for:
+- on one machine, with Feast handed every advantage.
 
-The name is a little smug, granted. The measurements are not.
+Second we ship an `import-feast`; a bridge that reads a Feast repo and rebuilds it inside a free (or not) Hopsworks account with all data carried across - so you as a user can give a try to both Feast and Hopsworks without hassle; in one command and not a rewrite.
+
+The name is a little tongue-in-cheek. Don't hold that against me. 
 
 ## What we measured
 
