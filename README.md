@@ -33,13 +33,13 @@ One node, both stores and both clients on it, July 2026. No external network on 
 | Axis | What came out | Winner |
 |---|---|---|
 | **Online serving** | 4.9x ahead at one row, 21.8x at a hundred, 15.4x at 250 features (p50). The tail is where it matters most for serving, and where the gap is widest: see below. | **Hopsworks** |
-| **Offline training data** | Feast's in-memory join wins under ~100k rows. Hopsworks is 3.2x faster at 1M (109s vs 344s), and at 10M Feast runs out of memory with no distributed path to fall back on. | **split** |
+| **Offline training data** | Hopsworks is 3.2x faster at 1M (109s vs 344s), and at 10M Feast runs out of memory with no distributed path to fall back on. Feast's in-memory join wins at small data only under a wide fan-out: the small-scale floor is join-width bound (3s at 1 group, 52s at 25), so at a realistic few-group feature view Hopsworks wins at 10k too. | **split** |
 | **Point-in-time** | Both leak-free, zero future values on either side. Table stakes. Feast does quietly drop the before-event rows, which thins your early training examples. | **tie** |
 | **Reusability** | Reading a feature in two places is parity. Lineage, who-consumes-this, cross-team sharing and access control are native in Hopsworks and missing from Feast's open-source default. | **Hopsworks** |
 
 **Tail latency (p99), the part that decides an online SLA.** At a single row Feast is 10.9 ms p99 against Hopsworks 2.6 ms; at a hundred rows 523.9 ms against 17.0 ms. Under concurrent load the split is starker: Hopsworks holds 456 rps with zero failures and a 1.8 s p99, where `feast serve` saturates near 116 rps and its p99 collapses to 18 s. That is 3.9x the throughput with a bounded tail where Feast's falls over.
 
-So the honest read. Under about 100k offline rows Feast is faster, and with nothing to run it is simpler to start. Once there is real online load, real training-set size, or more than one team touching a feature, Hopsworks pulls ahead and keeps going. Charts, every cell, and the run we threw out for contamination are in [`benchmark/README.md`](benchmark/README.md); the sourced claim-by-claim teardown is in [`docs/claims-teardown.md`](docs/claims-teardown.md).
+So the honest read. Feast is simpler to start with nothing to run, and it wins offline at small data when the join is wide (the small-scale floor is join-width bound, not intrinsic). Once there is real online load, real training-set size, or more than one team touching a feature, Hopsworks pulls ahead and keeps going. Charts, every cell, and the run we threw out for contamination are in [`benchmark/README.md`](benchmark/README.md); the sourced claim-by-claim teardown is in [`docs/claims-teardown.md`](docs/claims-teardown.md).
 
 ## 2. The bridge (`import-feast`)
 

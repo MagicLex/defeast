@@ -1,0 +1,4 @@
+{"side":"hopsworks","rows":10000,"groups":1,"features":10,"engine":"delta/HQS","warm_median_s":2.99,"warm_min_s":2.9}
+{"side":"hopsworks","rows":10000,"groups":5,"features":50,"engine":"delta/HQS","warm_median_s":10.01,"warm_min_s":8.21}
+{"side":"hopsworks","rows":10000,"groups":25,"features":250,"engine":"delta/HQS","warm_median_s":52.04,"warm_min_s":41.78}
+{"side":"feast","rows":10000,"groups":"n/a (single parquet)","features":250,"engine":"pandas in-memory","seconds":5.3}
