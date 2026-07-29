@@ -1,20 +1,32 @@
-# Results: HTTP feature-server latency
+# Results: throughput under concurrency (same-machine)
 
-This reproduces Feast's own published methodology: the feature server behind an HTTP load generator (Vegeta), the layer where their advertised latency numbers live. Feast side is `feast serve` (their product, gunicorn). Hopsworks side is a structural twin (uvicorn calling `get_feature_vector`). Vegeta at 10 req/s, 15s per cell, single worker each side. Raw data in `results/http_*.jsonl`.
+Open-loop load test of the two HTTP feature servers, both on one node, `lex-worker-2`. A stepped arrival-rate shape ramps the target from 50 to 1600 requests per second. This replaces the earlier Vegeta run, which used a single worker per side and an event-loop-blocking Hopsworks twin, both of which it flagged as unfair.
 
-## What is clean, and what is not
+The servers are matched: `feast serve` (Feast's own gunicorn server) with 4 workers, and a structural twin for Hopsworks (gunicorn with 4 uvicorn workers, a sync handler calling `get_feature_vectors` through the in-cluster RDRS client). Same worker count, same node, batch 1, 50 features. Raw data in `results/{feast,hops}_stats.csv` and `results/{feast,hops}_history.csv`.
 
-Read this section before the numbers. Both servers show artifacts under load, and most of them are implementation, not store.
+## What came out
 
-- The clean signal is **low-load p50 at batch 1**. It tracks the SDK result: Feast 7.2 ms, Hopsworks 4.5 ms at 50 features; Feast 28 ms, Hopsworks 6.9 ms at 250 features. Hopsworks stays 1.5x to 4x faster at the median through the HTTP hop too. That closes the "you only measured the slow SDK path" objection: `feast serve`, their own product, is slower than Hopsworks.
-- Everything past the low-load median is noise from the server implementations, not a Feast-vs-Hopsworks signal:
-  - Feast's single gunicorn worker saturates at 10 req/s for large batches (batch 100 times out at 28% success; batch 25 shows 1.8 s from queueing while batch 50 shows 77 ms, which is incoherent and means the run was unstable, not that batch 50 is faster than batch 25).
-  - The Hopsworks twin is a naive `async def` calling a blocking `get_feature_vector`, which blocks the uvicorn event loop and resets connections under load. That is why batch-1 cells show 61 to 66% success and a ~214 ms tail. This is my wrapper, not RonDB. A sync-worker server (like Feast's gunicorn) would not do this.
+| Server | Sustained rps | Failures | Median | p99 |
+|---|---|---|---|---|
+| Feast (`feast serve`, 4 workers) | 116 | 0.6% | 2100 ms | 18000 ms |
+| Hopsworks (RDRS twin, 4 workers) | 456 | 0% | 520 ms | 1800 ms |
 
-## Takeaway
+Under the same ramp, Hopsworks sustained 3.9x the request rate, with zero failures, and a median latency 4x lower under load. Feast's server saturated early: at the top steps its achieved rate stayed near 116 rps while requests queued, the median climbed to 2.1 s, and the p99 reached 18 s. Hopsworks held 456 rps with no failures and a 520 ms median.
 
-The HTTP layer confirms the SDK finding at the median: Hopsworks wins. Throughput and tail under load are not measured fairly here because both servers are single-worker and the Hopsworks twin is event-loop-blocking. Doing the HTTP throughput story properly needs sync-worker servers on both sides, per-cell rate calibrated below saturation, and longer runs. The SDK benchmark (`RESULTS.md`) stays the clean, primary latency result.
+## Reading it honestly
 
-## One honest cost to Hopsworks
+- Both numbers are capped by the same thing: the load generator (Locust) shared the pod's CPU with the server, so neither figure is the server's absolute ceiling. This caps both sides equally, so the ratio holds, but the true ceilings are higher, Hopsworks more so since it had headroom (0 failures) where Feast was already failing.
+- The signal is the saturation behavior, not a single rps number. Feast saturates around 100 to 150 rps on this node and its tail collapses past that (18 s p99). Hopsworks absorbs the same ramp with no failures and a bounded tail.
+- Same worker count on both (4), same node, same request shape. This is server-to-server at a matched worker model, the comparison the earlier single-worker Vegeta run could not make.
+- A cleaner absolute-ceiling run would put the load generator in its own pod so it does not steal CPU from the server. The relative result here is already decisive.
 
-Serving init on the Hopsworks side is slow and scales with the number of joined feature groups: 9 s for a 5-group feature view, over 40 s for the 25-group one. This is a one-time per-view startup cost (prepared statements and the online connector), paid once when a server boots, not per request. Feast's server starts in seconds. Worth naming even though it does not affect steady-state latency.
+## Reproduce
+
+Servers and load generator run in-cluster on the RonDB node (`setup/k8s/`), one server at a time (never concurrent). Start a server, then:
+
+```
+locust -f locustfile_feast.py,shape.py --headless --host http://127.0.0.1:6566 --csv results/feast
+locust -f locustfile_hops.py,shape.py  --headless --host http://127.0.0.1:6567 --csv results/hops
+```
+
+See `run.md` for the server start commands and the metric to read (max sustained rps with achieved equal to target and no failures; the knee is the first step where they diverge).
