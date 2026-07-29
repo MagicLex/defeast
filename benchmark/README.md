@@ -1,18 +1,16 @@
 # Benchmark: Feast vs Hopsworks
 
-Head-to-head on the points Feast advertises: low-latency online serving, fast offline retrieval, point-in-time correctness, reusability. Same data, same feature model, same query sweep, same machine, measured at the same layer. Feast plays at home throughout: its Redis online store runs on `localhost` with zero network, the Hopsworks client goes over the wire to RonDB with TLS. The advantage is Feast's, and it still loses on the axes that matter at production scale.
+Head-to-head on the points Feast advertises: low-latency online serving, fast offline retrieval, point-in-time correctness, reusability. Same data, same feature model, same query sweep, same machine, measured at the same layer. Both stores and both clients run on one node (`lex-worker-2`, the RonDB node), so neither side crosses an external network. The setup is reproducible from `setup/k8s/`.
 
-Raw per-cell data is in `results/`. Per-axis detail and honest caveats are in the `RESULTS_*.md` files linked below.
+Per-axis detail and raw data are under each axis directory (`latency/`, `throughput/`, `offline/`, `pit/`, `reuse/`, `architecture/`).
 
 ## Online serving latency
 
 ![Online latency, Feast vs Hopsworks](img/online_latency.png)
 
-Hopsworks retrieves online features 2.1x to 27.9x faster at the median, and the gap widens with load. Feast climbs almost linearly with batch size (a 45x slowdown from batch 1 to batch 100, the per-entity Python cost); RonDB stays nearly flat. Both numbers are the default `pip install feast` Python SDK path returning a materialized object, not the alpha Go feature server Feast benchmarks advertise.
+Hopsworks retrieves online features 4.9x to 21.8x faster at the median, and the gap widens with load. Feast climbs almost linearly with batch size (a 49x slowdown from batch 1 to batch 100, the per-entity Python cost); RonDB stays nearly flat. Both numbers are the default `pip install feast` Python SDK path returning a materialized object, not the alpha Go feature server Feast benchmarks advertise. Detail and all cells: [`latency/RESULTS.md`](latency/RESULTS.md).
 
-The HTTP feature-server path (Feast's own published methodology) confirms the finding at the low-load median: Feast 7.2 ms vs Hopsworks 4.5 ms at 50 features, Feast 28 ms vs Hopsworks 6.9 ms at 250.
-
-Detail and all cells: [`latency/RESULTS.md`](latency/RESULTS.md) (SDK), [`throughput/RESULTS.md`](throughput/RESULTS.md) (HTTP server).
+Under concurrent load (open-loop, matched 4-worker servers), Hopsworks sustains 456 rps with zero failures and a 520 ms median, where `feast serve` saturates near 116 rps and its tail collapses to an 18 s p99. That is 3.9x the throughput under identical conditions. Detail: [`throughput/RESULTS.md`](throughput/RESULTS.md).
 
 ## Offline training data
 
@@ -20,7 +18,7 @@ Detail and all cells: [`latency/RESULTS.md`](latency/RESULTS.md) (SDK), [`throug
 
 Time to build a training dataset (N unique entities, 250 features, point-in-time join across 25 groups). Feast's in-memory pandas join wins below about 100k rows, where it has no distributed-query overhead. Above the crossover Hopsworks pulls away (3.2x at 1M) and keeps widening. At 10M rows Feast OOM-crashes with no distributed fallback; Hopsworks has the Spark path Feast lacks. Production training sets are millions of rows, to the right of the crossover.
 
-The Hopsworks 10k point is its fixed distributed-query overhead floor (~45s), not a clean win at that size. Detail: [`offline/RESULTS.md`](offline/RESULTS.md).
+The Hopsworks 10k point is its fixed distributed-query overhead floor (~45s), not a clean win at that size. This axis is engine-bound (pandas in-memory versus a distributed query) and runs at the second-to-minute scale, so the network is noise and the same-machine move does not change it. Detail: [`offline/RESULTS.md`](offline/RESULTS.md).
 
 ## Point-in-time correctness and reusability
 
@@ -28,6 +26,10 @@ Two axes where the honest answer is not "Hopsworks wins", so they get no chart.
 
 - **Point-in-time**: both stores are leak-free, 0 future leakage on either side. Table stakes, not a Feast differentiator. Feast does silently drop rows with no as-of value (before-event labels), which quietly removes early training examples. [`pit/RESULTS.md`](pit/RESULTS.md).
 - **Reusability**: read-level reuse (define once, read many) is parity. Reverse lineage, model-to-feature provenance, cross-team sharing, and RBAC are native in Hopsworks and absent from Feast's open-source default. [`reuse/RESULTS.md`](reuse/RESULTS.md).
+
+## Architecture
+
+What you operate to serve features in production, and the online read path of each store, scoped honestly (not a naive platform pod count). Moving-parts matrix, read-path diagrams, and the serving-component footprint in [`architecture/README.md`](architecture/README.md).
 
 ## Setup
 
