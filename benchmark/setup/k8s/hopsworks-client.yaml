@@ -1,0 +1,38 @@
+# SOTA same-machine benchmark: the Hopsworks client runs in-cluster, pinned to the
+# node that hosts RonDB (lex-worker-2), so the online read path is same-node and does
+# not cross the external MetalLB network. Small resource requests so it schedules into
+# the reservation headroom (the node is idle in practice). Redis and the Feast client
+# get their own pods pinned to the same node for a symmetric comparison.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hopsworks-client
+  namespace: defeast-bench
+  labels: { app: hopsworks-client, part-of: defeast-bench }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: hopsworks-client }
+  template:
+    metadata:
+      labels: { app: hopsworks-client }
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: lex-worker-2
+      containers:
+        - name: client
+          image: python:3.11-slim
+          command: ["sleep", "infinity"]
+          resources:
+            requests: { cpu: "500m", memory: "1Gi" }
+            limits: { cpu: "4", memory: "3Gi" }
+          env:
+            - name: HOPSWORKS_HOST
+              value: "10.113.154.130"
+            - name: HOPSWORKS_API_KEY_FILE
+              value: "/secrets/hw-key/key"
+          volumeMounts:
+            - { name: hw-key, mountPath: /secrets/hw-key, readOnly: true }
+      volumes:
+        - name: hw-key
+          secret: { secretName: hw-key }
