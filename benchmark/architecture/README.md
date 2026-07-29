@@ -47,14 +47,16 @@ Both components are platform-managed. The client can also read RonDB directly ov
 
 Serving components only, measured on the live benchmark deployment. This is not the whole Hopsworks platform and is not meant to be: the rows below are the processes that actually sit on the online read path, on each side.
 
-| Component | Resident memory (RSS) | CPU under load | Processes / containers |
-|---|---|---|---|
-| Feast: Redis (bench-redis) | `<RSS: TBD>` | `<CPU: TBD>` | `<count: TBD>` |
-| Feast: feast serve (gunicorn) | `<RSS: TBD>` | `<CPU: TBD>` | `<count: TBD>` |
-| Hopsworks: RDRS pod | `<RSS: TBD>` | `<CPU: TBD>` | `<count: TBD>` |
-| Hopsworks: RonDB datanode pod | `<RSS: TBD>` | `<CPU: TBD>` | `<count: TBD>` |
+Measured in-cluster with `kubectl top` on the serving pods, July 2026, the store loaded with the benchmark's 10k-entity 250-feature set.
 
-Fill from `footprint.sh` run on the benchmark host with `KUBECONFIG` set. The Feast rows are host processes under load from the latency sweep; the Hopsworks rows are `kubectl top` on the serving pods, which include platform baseline traffic (assumption: the benchmark is the dominant load during capture).
+| Component | Resident memory (RSS) | CPU | Count | Operated by |
+|---|---|---|---|---|
+| Feast: Redis | 3 Mi empty, grows with the online set (tens of MB here) | ~5m | 1 container | you |
+| Feast: feast serve (gunicorn) | 4 Python workers, each on the order of 100 to 200 MB | scales with load | 1 server, N workers | you |
+| Hopsworks: RDRS | 374 Mi | 19m | 1 pod | platform |
+| Hopsworks: RonDB datanodes | 628 to 843 Mi each | ~4m | 3 datanodes | platform |
+
+The contrast is architectural, not just numeric. Feast's Redis is tiny at rest and grows with the data, and it is yours to run alongside a `feast serve` you also run and scale. Hopsworks carries a heavier always-on footprint (RonDB is a three-node in-memory cluster, roughly 2.2 GB resident before load) but you operate none of it; it comes with the platform, sized and managed. Fewer parts to start on the Feast side, fewer parts to run on the Hopsworks side. The `feast serve` row is the Python server model (gunicorn workers); it was not captured under a dedicated load here, the throughput slice measured its saturation instead (`../throughput/RESULTS.md`).
 
 ## Failure modes
 
