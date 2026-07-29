@@ -10,7 +10,7 @@ One-shot bridge that replays a Feast feature repo into Hopsworks feature groups 
   - type fidelity: a Feast `Int32`/`Float32` migrates as `int`/`float`, not the `bigint`/`double` parquet inference would give. The backfill is coerced to the declared type.
   - nullable features are preserved (a null `Int32` stays a typed-int column with its nulls).
   - idempotent: re-running `execute` upserts on the primary key, no row duplication.
-- **SaaS**: the executor logs in with the standard `hopsworks` client (`--host` + project-scoped API key), so the [Hopsworks SaaS](https://app.hopsworks.ai) deployment uses the same path and should behave the same. Not yet run end to end there; supported-not-yet-verified until a SaaS run is posted.
+- **SaaS**: validated end to end against a Hopsworks SaaS deployment (`eu-west.cloud.hopsworks.ai`), same FileSource repo, same fidelity checks. The executor creates feature groups with `time_travel_format="HUDI"` so the offline write runs as a server-side materialization job (client produces to Kafka, the cluster writes the table). The 5.x default `DELTA` makes the python client write the offline table directly to the object store, which only works where the client can reach it (S3-backed serverless), not an HDFS-backed cluster reached from outside. The `[execute]` extra installs `hopsworks[python]` (fastavro + confluent-kafka), which the HUDI insert needs.
 - Next: warehouse sources (connectors + external FGs), on-demand transforms, streaming.
 
 ## Why two commands

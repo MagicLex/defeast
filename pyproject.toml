@@ -9,7 +9,9 @@ dependencies = ["pyarrow"]
 # Install the plan side in a Feast env, the execute side in a Hopsworks env.
 [project.optional-dependencies]
 plan = ["feast"]
-execute = ["hopsworks", "pandas"]
+# hopsworks[python] pulls confluent-kafka + arrow-flight, the client-side deps the
+# HUDI insert path needs (produce to Kafka, read back over the query service).
+execute = ["hopsworks[python]", "pandas"]
 
 [project.scripts]
 import-feast = "import_feast.cli:main"

@@ -31,7 +31,9 @@ _NULLABLE = {
 
 def _coerce(series, htype: str):
     """Cast a backfill column to the plan's declared type. Uses a pandas nullable dtype
-    when the column has nulls and the target is integer/bool (numpy cannot hold them)."""
+    when the column has nulls and the target is integer/bool (numpy cannot hold them).
+    This keeps hsfs schema-compat deriving 'int' (not 'double'); the HUDI insert then
+    needs fastavro to encode the rows, which the [execute] extra pulls in."""
     target = _HIVE_TO_PANDAS.get(htype)
     if target is None or str(series.dtype) == target:
         return series
@@ -74,6 +76,14 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
             event_time=fg["event_time"],
             online_enabled=fg["online_enabled"],
             features=[Feature(name=n, type=t) for n, t in fg["features"]],
+            # HUDI routes the offline write through a server-side materialization job
+            # (client produces to Kafka, the cluster writes the table). The 5.x default
+            # DELTA makes the python client write the offline table directly to the
+            # object store, which only works where the client can reach it (S3-backed
+            # serverless). On an HDFS-backed cluster reached from outside (self-hosted
+            # or the eu-west SaaS) that direct write cannot reach HDFS and fails. HUDI
+            # works in all three because the write happens on the cluster.
+            time_travel_format="HUDI",
         )
         if no_statistics:
             kwargs["statistics_config"] = {"enabled": False}
