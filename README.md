@@ -22,11 +22,11 @@ The name is a little smug, granted. The measurements are not.
 
 <p align="center"><img src="benchmark/img/online_latency.png" alt="Online serving latency, Feast vs Hopsworks" width="100%"></p>
 
-One host, 96 cores, both stores side by side, July 2026. Feast played at home the whole time; its Redis ran on localhost with zero network while the Hopsworks client went over the wire to RonDB with TLS. It lost anyway on the axes that matter once you are past a toy.
+One node, both stores and both clients on it, July 2026. No external network on either side now; Feast reads Redis on the node, Hopsworks reads RonDB through RDRS on the same node. Taking the network away actually widened the gap, because Hopsworks was the one that used to pay for it.
 
 | Axis | What came out | Winner |
 |---|---|---|
-| **Online serving** (p50) | 2.1x ahead at one row, 27.9x at a hundred. RonDB barely moves as the batch grows; Feast climbs almost linearly. | **Hopsworks** |
+| **Online serving** (p50) | 4.9x ahead at one row, 21.8x at a hundred, 15.4x at 250 features. RonDB barely moves as the batch grows; Feast climbs almost linearly. | **Hopsworks** |
 | **Offline training data** | Feast's in-memory join wins under ~100k rows. Hopsworks is 3.2x faster at 1M (109s vs 344s), and at 10M Feast runs out of memory with no distributed path to fall back on. | **split** |
 | **Point-in-time** | Both leak-free, zero future values on either side. Table stakes. Feast does quietly drop the before-event rows, which thins your early training examples. | **tie** |
 | **Reusability** | Reading a feature in two places is parity. Lineage, who-consumes-this, cross-team sharing and access control are native in Hopsworks and missing from Feast's open-source default. | **Hopsworks** |

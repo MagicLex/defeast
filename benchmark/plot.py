@@ -32,21 +32,21 @@ def style(ax):
 # Online latency, two panels (p50, ms). Source: RESULTS.md.
 fig, (a, b) = plt.subplots(1, 2, figsize=(11, 4.2), dpi=150)
 bx = [1, 10, 25, 50, 100]
-a.plot(bx, [5.64, 28.97, 64.45, 126.70, 253.05], color=FEAST, label="Feast (Redis, localhost)", **MARK)
-a.plot(bx, [2.68, 3.61, 4.68, 6.17, 9.08], color=HOPS, label="Hopsworks (RonDB, over network)", **MARK)
+a.plot(bx, [6.41, 34.24, 80.30, 161.02, 312.91], color=FEAST, label="Feast (Redis, same node)", **MARK)
+a.plot(bx, [1.30, 2.59, 4.40, 7.60, 14.32], color=HOPS, label="Hopsworks (RonDB via RDRS, same node)", **MARK)
 # Linear y on purpose: a log y-axis compresses the gap and flatters Feast. Linear
-# shows the truth, Feast climbs to 253 ms while RonDB stays flat near the axis.
+# shows the truth, Feast climbs to 313 ms while RonDB stays flat near the axis.
 a.set_xscale("log"); a.set_xticks(bx)
 a.get_xaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}"))
 a.set_ylim(bottom=0)
 a.set_title("Online latency vs batch size", fontweight="bold", fontsize=12, pad=10, loc="left")
 a.set_xlabel("entity rows per request"); a.set_ylabel("p50 latency (ms)")
-a.annotate("Feast 27.9x slower\nat batch 100", xy=(1.2, 232), ha="left", va="top", color=FEAST, fontweight="bold", fontsize=11)
+a.annotate("Feast 21.8x slower\nat batch 100", xy=(1.2, 288), ha="left", va="top", color=FEAST, fontweight="bold", fontsize=11)
 style(a); a.legend(frameon=False, fontsize=9.5, loc="upper left")
 
 fx = [50, 100, 150, 200, 250]
-b.plot(fx, [5.64, 10.72, 16.23, 22.33, 27.47], color=FEAST, label="Feast", **MARK)
-b.plot(fx, [2.68, 3.23, 3.75, 4.39, 4.95], color=HOPS, label="Hopsworks", **MARK)
+b.plot(fx, [6.41, 12.23, 18.42, 24.57, 30.90], color=FEAST, label="Feast", **MARK)
+b.plot(fx, [1.30, 1.44, 1.57, 1.79, 2.01], color=HOPS, label="Hopsworks", **MARK)
 b.set_title("Online latency vs feature count", fontweight="bold", fontsize=12, pad=10, loc="left")
 b.set_xlabel("features requested (single row)"); b.set_ylabel("p50 latency (ms)"); b.set_xticks(fx)
 style(b); b.legend(frameon=False, fontsize=9.5, loc="upper left")

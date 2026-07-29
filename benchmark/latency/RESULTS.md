@@ -1,36 +1,39 @@
-# Results: online serving latency
+# Results: online serving latency (same-machine)
 
-SDK path, single-thread, warm. 300 measured calls per cell after 50 warmup, random entities over a 10k keyspace. Run on a 96-core host against a Hopsworks cluster on the same host's Kubernetes, 2026-07-27. Raw data in `results/`.
+SDK path, single-thread, warm. 300 measured calls per cell after 50 warmup, random entities over a 10k keyspace. Both stores and both clients run on one node, `lex-worker-2`, so neither side crosses an external network. Feast reads Redis on the same node, Hopsworks reads RonDB through RDRS (the RonDB REST Data Service) on the same node via the in-cluster service address. This replaces an earlier run where the Hopsworks client sat on a separate host and reached RonDB over the load balancer, a handicap Feast did not have. Raw data in `results/feast_incluster.jsonl` and `results/hops_incluster.jsonl`.
 
 ## Headline
 
-Hopsworks retrieves online features 2x to 28x faster at the median, and the gap grows with load. Feast climbs almost linearly with batch size; RonDB stays nearly flat.
+Hopsworks retrieves online features 4.9x to 21.8x faster at the median, and the gap grows with load. Feast climbs almost linearly with batch size; RonDB stays nearly flat.
 
 | Query | Feast p50 | Feast p99 | Hops p50 | Hops p99 | Ratio p50 |
 |---|---|---|---|---|---|
-| 1 row, 50 feats | 5.6 | 11.1 | 2.7 | 3.7 | 2.1x |
-| 10 rows, 50 feats | 29.0 | 52.8 | 3.6 | 4.7 | 8.0x |
-| 25 rows, 50 feats | 64.5 | 117.0 | 4.7 | 5.4 | 13.8x |
-| 50 rows, 50 feats | 126.7 | 225.9 | 6.2 | 7.4 | 20.5x |
-| 100 rows, 50 feats | 253.1 | 444.4 | 9.1 | 11.0 | 27.9x |
-| 1 row, 100 feats | 10.7 | 20.7 | 3.2 | 4.2 | 3.3x |
-| 1 row, 150 feats | 16.2 | 32.0 | 3.8 | 4.5 | 4.3x |
-| 1 row, 200 feats | 22.3 | 46.2 | 4.4 | 214.8 | 5.1x |
-| 1 row, 250 feats | 27.5 | 55.0 | 4.9 | 216.1 | 5.6x |
+| 1 row, 50 feats | 6.4 | 10.9 | 1.3 | 2.6 | 4.9x |
+| 10 rows, 50 feats | 34.2 | 57.5 | 2.6 | 4.0 | 13.2x |
+| 25 rows, 50 feats | 80.3 | 136.4 | 4.4 | 5.5 | 18.2x |
+| 50 rows, 50 feats | 161.0 | 269.6 | 7.6 | 9.1 | 21.2x |
+| 100 rows, 50 feats | 312.9 | 523.9 | 14.3 | 17.0 | 21.8x |
+| 1 row, 100 feats | 12.2 | 21.5 | 1.4 | 2.1 | 8.5x |
+| 1 row, 150 feats | 18.4 | 31.4 | 1.6 | 3.3 | 11.7x |
+| 1 row, 200 feats | 24.6 | 42.4 | 1.8 | 2.7 | 13.8x |
+| 1 row, 250 feats | 30.9 | 53.3 | 2.0 | 3.2 | 15.4x |
 
 All values in milliseconds.
 
 ## Reading it honestly
 
-- Feast played at home. Its Redis store ran on localhost, zero network. The Hopsworks client went over the network to RonDB with TLS. The advantage was Feast's, and it still lost on the median everywhere.
-- At the smallest query (1 row), Hopsworks shows occasional network tail spikes near 210 ms p99 on two cells. These are external-client artifacts on the metadata path, not RonDB. Feast's localhost avoids them. Under any real load (batch or many features) Hopsworks wins on every percentile.
+- Same machine, same node, no external network on either side. Both clients run in-cluster on `lex-worker-2` and reach their store through the cluster service network. The node is idle in practice (about 2% CPU, 61% memory), so the measurement is not fighting contention.
+- Removing the network widened the gap, because Hopsworks was the side that used to pay for it. At a single row the ratio went from 2.1x (client over the load balancer) to 4.9x (same node). At 250 features it went from 5.6x to 15.4x.
+- Hopsworks here uses the REST path (client to RDRS over HTTP). That path carries a per-request HTTP cost that shows at large batch: at batch 100 it is 14.3 ms, where the direct SQL client to RonDB was 9 ms. So the batch-100 ratio (21.8x) understates Hopsworks; the SQL path would widen it. Single-row and feature-count reads, where most online serving lives, are the clean win.
 - Both numbers are the Python SDK returning a materialized object, the default `pip install feast` path, not the alpha Go feature server Feast benchmarks advertise.
-- Feast's own slowdown from batch 1 to batch 100 is 45x. This is the per-entity Python processing that a purpose-built store avoids.
+- Feast's own slowdown from batch 1 to batch 100 is 49x. This is the per-entity Python processing that a purpose-built store avoids.
 
-## First-run contamination (discarded)
+## Method
 
-An earlier run showed Feast at 31 ms p50 for the 1 row / 50 feats cell. That run overlapped the Hopsworks feature-group setup (25 Kafka-backed inserts) loading the host. It was discarded. The clean, isolated numbers above (5.6 ms) are the fair ones.
+- Feast: 25 feature views, 5 feature services, online store Redis 7 on the same node, `feast materialize`. Repo generated in-cluster, mirroring `setup/feast_repo`. Read with `get_online_features`.
+- Hopsworks: 25 feature groups, 5 feature views, online store RonDB. Read with `get_feature_vector(s)`, REST client pinned to the in-cluster RDRS endpoint.
+- The in-cluster harness is reproducible from `setup/k8s/` (namespace, client pods pinned to the RonDB node, Redis). Runs are sequential, never concurrent, so the two do not contend.
 
-## Not yet measured
+## Not yet measured here
 
-The HTTP feature server path (Feast's own published methodology: Dockerized feature servers behind Vegeta, where their 4 ms Redis claim lives). Next slice, to close the "you used the slow SDK path" objection.
+Throughput under concurrency (the HTTP feature-server path with a load generator). That is the `throughput/` slice, run with Locust in open-loop against both servers on the same node.

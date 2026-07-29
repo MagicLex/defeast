@@ -1,0 +1,9 @@
+{"side": "hopsworks", "path": "rest_incluster", "batch": 1, "features": 50, "n": 300, "p50": 1.304, "p90": 1.525, "p99": 2.566, "p999": 3.064, "mean": 1.309, "max": 3.155}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 10, "features": 50, "n": 300, "p50": 2.586, "p90": 3.28, "p99": 3.985, "p999": 65.542, "mean": 2.914, "max": 91.763}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 25, "features": 50, "n": 300, "p50": 4.404, "p90": 4.954, "p99": 5.538, "p999": 6.285, "mean": 4.396, "max": 6.398}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 50, "features": 50, "n": 300, "p50": 7.603, "p90": 8.274, "p99": 9.114, "p999": 9.282, "mean": 7.486, "max": 9.282}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 100, "features": 50, "n": 300, "p50": 14.323, "p90": 15.842, "p99": 17.048, "p999": 18.242, "mean": 14.192, "max": 18.657}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 1, "features": 100, "n": 300, "p50": 1.438, "p90": 1.712, "p99": 2.146, "p999": 4.59, "mean": 1.454, "max": 4.829}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 1, "features": 150, "n": 300, "p50": 1.57, "p90": 1.946, "p99": 3.251, "p999": 5.143, "mean": 1.628, "max": 5.276}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 1, "features": 200, "n": 300, "p50": 1.785, "p90": 2.05, "p99": 2.714, "p999": 2.92, "mean": 1.758, "max": 2.93}
+{"side": "hopsworks", "path": "rest_incluster", "batch": 1, "features": 250, "n": 300, "p50": 2.014, "p90": 2.378, "p99": 3.207, "p999": 3.843, "mean": 2.017, "max": 4.087}

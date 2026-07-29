@@ -30,8 +30,8 @@
   <circle cx="1188" cy="72" r="7" fill="#eb6834"/>
   <circle cx="1188" cy="282" r="7" fill="#2a78d6"/>
 
-  <text x="1150" y="180" text-anchor="end" font-family="Helvetica Neue, Arial, sans-serif" font-size="26" font-weight="700" fill="#eb6834">27.9&#215;</text>
-  <text x="1150" y="205" text-anchor="end" font-family="Helvetica Neue, Arial, sans-serif" font-size="14" fill="#8a8a90">at batch 100</text>
+  <text x="1150" y="180" text-anchor="end" font-family="Helvetica Neue, Arial, sans-serif" font-size="26" font-weight="700" fill="#eb6834">21.8&#215;</text>
+  <text x="1150" y="205" text-anchor="end" font-family="Helvetica Neue, Arial, sans-serif" font-size="14" fill="#8a8a90">at batch 100, same node</text>
 
   <!-- wordmark -->
   <text x="78" y="150" font-family="Helvetica Neue, Arial, sans-serif" font-size="15" font-weight="700" letter-spacing="4" fill="#6f6f77">FEAST</text>
