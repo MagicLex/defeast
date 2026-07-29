@@ -11,6 +11,10 @@ metadata:
   labels: { app: hopsworks-client, part-of: defeast-bench }
 spec:
   replicas: 1
+  # Recreate, not RollingUpdate: the node reservations are ~96%, so two pods of this
+  # deployment cannot coexist during an update. Terminate the old one, then schedule
+  # the new one into the freed slot.
+  strategy: { type: Recreate }
   selector:
     matchLabels: { app: hopsworks-client }
   template:
