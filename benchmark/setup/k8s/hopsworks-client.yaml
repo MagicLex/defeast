@@ -30,7 +30,9 @@ spec:
           image: python:3.11
           command: ["sleep", "infinity"]
           resources:
-            requests: { cpu: "500m", memory: "1Gi" }
+            # Tiny requests to schedule into the node's thin reservation headroom
+            # (the node is idle in practice); real throughput comes from the limits.
+            requests: { cpu: "200m", memory: "768Mi" }
             limits: { cpu: "4", memory: "3Gi" }
           env:
             - name: HOPSWORKS_HOST
