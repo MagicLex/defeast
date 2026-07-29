@@ -21,7 +21,9 @@ spec:
         kubernetes.io/hostname: lex-worker-2
       containers:
         - name: client
-          image: python:3.11-slim
+          # full image (buildpack-deps based): ships gcc, needed to build the
+          # twofish C extension that hopsworks pulls in. slim cannot build it.
+          image: python:3.11
           command: ["sleep", "infinity"]
           resources:
             requests: { cpu: "500m", memory: "1Gi" }
