@@ -10,6 +10,8 @@ Per-axis detail and raw data are under each axis directory (`latency/`, `through
 
 Hopsworks retrieves online features 4.9x to 21.8x faster at the median, and the gap widens with load. Feast climbs almost linearly with batch size (a 49x slowdown from batch 1 to batch 100, the per-entity Python cost); RonDB stays nearly flat. Both numbers are the default `pip install feast` Python SDK path returning a materialized object, not the alpha Go feature server Feast benchmarks advertise. Detail and all cells: [`latency/RESULTS.md`](latency/RESULTS.md).
 
+The tail is the part an online SLA is written against, and it tracks the median: at a single row Feast is 10.9 ms p99 against Hopsworks 2.6 ms, and at a hundred rows 523.9 ms against 17.0 ms. The full p50/p99 table per query is in [`latency/RESULTS.md`](latency/RESULTS.md).
+
 Under concurrent load (open-loop, matched 4-worker servers), Hopsworks sustains 456 rps with zero failures and a 520 ms median, where `feast serve` saturates near 116 rps and its tail collapses to an 18 s p99. That is 3.9x the throughput under identical conditions. Detail: [`throughput/RESULTS.md`](throughput/RESULTS.md).
 
 ## Offline training data
