@@ -159,15 +159,15 @@ fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=150)
 groups = [1, 5, 25]
 hops = [2.99, 10.01, 52.04]
 ax.plot(groups, hops, color=HOPS, label="Hopsworks get_batch_data (DELTA/HQS)", **MARK)
-ax.axhline(5.3, color=FEAST, lw=2.0, ls="--", zorder=2, label="Feast get_historical_features (single parquet)")
+# Feast is only measured at the full 250 features (25 FVs), so it is one point at 25
+# groups, not a line: at narrow widths Feast reads less and is faster, unmeasured here.
+ax.plot([25], [5.3], color=FEAST, marker="D", ms=8, ls="none", zorder=4, label="Feast get_historical_features (250 features)")
 ax.set_xticks(groups); ax.set_ylim(bottom=0)
-ax.set_title("Offline floor is join-width bound (10k rows)", fontweight="bold", fontsize=12, pad=10, loc="left")
+ax.set_title("Hopsworks offline floor scales with join width (10k rows)", fontweight="bold", fontsize=12, pad=10, loc="left")
 ax.set_xlabel("feature groups joined (point-in-time)"); ax.set_ylabel("time to build (seconds)")
-ax.annotate("Feast 5.3s\n(no join to build)", xy=(25, 5.3), xytext=(25, 12), ha="right", va="bottom", color=FEAST, fontsize=9.5)
 ax.annotate("~2s per group added\n(query construction)", xy=(25, 52.04), xytext=(23.5, 52.04), ha="right", va="center", color=HOPS, fontweight="bold", fontsize=9.5)
-ax.annotate("1 group: 3.0s,\nbeats Feast", xy=(1, 2.99), xytext=(2.2, 20), ha="left", va="center", color=HOPS, fontsize=9.5,
-            arrowprops=dict(arrowstyle="->", color=MUT, lw=1))
-ax.annotate("25 groups =\nfeast-benchmarks design", xy=(25, 52.04), xytext=(15, 44), ha="center", va="top", color=MUT, fontsize=9)
+ax.annotate("Feast at 250 feats: 5.3s\n(narrow widths not measured)", xy=(25, 5.3), xytext=(24, 13), ha="right", va="bottom", color=FEAST, fontsize=9)
+ax.annotate("25 groups =\nfeast-benchmarks design", xy=(25, 52.04), xytext=(15, 43), ha="center", va="top", color=MUT, fontsize=9)
 style(ax); ax.legend(frameon=False, fontsize=9.5, loc="upper left")
 save(fig, "offline_join_width.png")
 

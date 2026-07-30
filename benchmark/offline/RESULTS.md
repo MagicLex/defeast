@@ -27,7 +27,9 @@ The row curve above is measured at a fixed 25-group fan-out (the feast-benchmark
 | 5 | 50 | 10.01 s |
 | 25 | 250 | 52.04 s |
 
-Roughly 2 s per group added. At one group Hopsworks builds the training data in 3.0 s and beats Feast's 5.3 s; the lines cross around two groups. The "Feast wins below 100k" concession is a property of the 25-way join, not a small-scale weakness of Hopsworks. A realistic feature view of a few groups wins at 10k too.
+Roughly 2 s per group added: 3.0 s at 1 group, 52 s at 25. So the "Feast wins below 100k" concession is driven by the 25-way fan-out of the feast-benchmarks design, and narrows sharply with fewer groups.
+
+This does not by itself mean Hopsworks wins at 10k with a narrow feature view. Feast's 5.3 s is measured at the full 250 features (25 FVs); at a narrow width Feast reads less data and is also faster (a 1-group read on this data is sub-second), so a fair by-width comparison needs Feast measured at the same widths, which is not yet clean here (the Feast width harness returns an empty spine on this parquet and hits a pandas datetime dtype error on the multi-FV join). What is established is the Hopsworks side: the small-scale floor is fan-out cost, not a row cost and not cluster starvation.
 
 Where the time goes (cProfile of one warm `get_batch_data`, 25 groups, 10k rows, 47 s total):
 

@@ -33,7 +33,7 @@ One node, both stores and both clients on it, July 2026. No external network on 
 | Axis | What came out | Winner |
 |---|---|---|
 | **Online serving** | 4.9x ahead at one row, 21.8x at a hundred, 15.4x at 250 features (p50). The tail is where it matters most for serving, and where the gap is widest: see below. | **Hopsworks** |
-| **Offline training data** | Hopsworks is 3.2x faster at 1M (109s vs 344s), and at 10M Feast runs out of memory with no distributed path to fall back on. Feast's in-memory join wins at small data only under a wide fan-out: the small-scale floor is join-width bound (3s at 1 group, 52s at 25), so at a realistic few-group feature view Hopsworks wins at 10k too. | **split** |
+| **Offline training data** | Hopsworks is 3.2x faster at 1M (109s vs 344s), and at 10M Feast runs out of memory with no distributed path to fall back on. Feast wins at small data. The Hopsworks small-scale floor is a query-construction cost that scales with join width (3s at 1 group to 52s at 25 groups at 10k), so it is fan-out driven, not row driven. | **split** |
 | **Point-in-time** | Both leak-free, zero future values on either side. Table stakes. Feast does quietly drop the before-event rows, which thins your early training examples. | **tie** |
 | **Reusability** | Reading a feature in two places is parity. Lineage, who-consumes-this, cross-team sharing and access control are native in Hopsworks and missing from Feast's open-source default. | **Hopsworks** |
 

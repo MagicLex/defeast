@@ -28,7 +28,7 @@ Time to build a training dataset (N unique entities, 250 features, point-in-time
 
 The Hopsworks 10k point is its fixed distributed-query overhead floor, not a clean win at that size. This axis is engine-bound (pandas in-memory versus a distributed query) and runs at the second-to-minute scale, so the network is noise and the same-machine move does not change it.
 
-That floor is join-width bound, not row bound. Holding rows at 10k and varying the number of joined feature groups, Hopsworks `get_batch_data` runs 3.0s at 1 group, 10s at 5, 52s at 25. Roughly 2s per group, and at one group it beats Feast (5.3s). The row curve above is measured at the 25-group fan-out of the feast-benchmarks design, so the small-scale concession is a property of that wide join, not a weakness at small data. A profile puts ~36s of the 25-group floor in backend query construction and ~10s in the actual read; freeing cluster memory did not move it.
+That floor is join-width bound, not row bound. Holding rows at 10k and varying the number of joined feature groups, Hopsworks `get_batch_data` runs 3.0s at 1 group, 10s at 5, 52s at 25. Roughly 2s per group. The row curve above is measured at the 25-group fan-out of the feast-benchmarks design, so the small-scale concession is a property of that wide join, not a fixed weakness at small data. A profile puts ~36s of the 25-group floor in backend query construction and ~10s in the actual read; freeing cluster memory did not move it. A fair Hopsworks-vs-Feast comparison at narrow widths still needs Feast measured at the same widths (its 5.3s is at the full 250 features), so this axis characterizes the Hopsworks floor, not a small-scale win.
 
 ![Offline floor vs join width](img/offline_join_width.png)
 
