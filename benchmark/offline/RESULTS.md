@@ -1,54 +1,58 @@
-# Results: offline (batch / training data) retrieval
+# Results: offline (training data) retrieval
 
-Time to generate a training dataset from the offline store: N unique entities, 250 features, point-in-time correct join across 25 feature groups. Feast `get_historical_features` (file offline store, pandas join) vs Hopsworks `get_batch_data` (Hudi via Arrow Flight). Unique entities, so both return exactly N rows, no join fan-out. Raw data in `results/batch_*.jsonl`.
+Building a training dataset: N unique entities, 250 features, point-in-time correct join across 25 feature groups. Feast `get_historical_features` (file offline store, pandas join) vs Hopsworks over the Hopsworks Query Service (DELTA feature groups, Arrow Flight / DuckDB). Unique entities, so both return exactly N rows, no join fan-out. Same machine (dev0), measured warm.
 
-## The crossover
+## Two operations, not one
 
-| rows | Feast | Hopsworks | winner |
-|---|---|---|---|
-| 10k | 5.3 s | ~45 s (overhead floor) | Feast |
-| 100k | 35.6 s | 53.8 s | Feast (slight) |
-| 1M | 344 s | 109 s | Hopsworks 3.2x |
-| 10M | OOM crash | Spark path (see below) | Hopsworks |
+Offline retrieval has two distinct patterns, and they have very different costs. The first version of this axis measured only the first one, with the wrong Hopsworks API, and that undersold the store on the pattern that matters for training.
 
-Feast scales linearly: 5.3, 36, 344 seconds, a clean 10x per decade of rows. Hopsworks scales sub-linearly: a fixed distributed-query overhead of roughly 45 to 55 s dominates at small scale, then the engine barely moves (54 to 109 s from 100k to 1M). The lines cross between 100k and 1M.
+- **On-the-fly build**: compute the point-in-time join and return the rows now. Feast `get_historical_features`; Hopsworks `training_data()` (or the older `get_batch_data`, which is actually a batch-inference time-range read and does not do a PIT join). Both stores rebuild the join on every call.
+- **Materialize once, read many**: compute the join once into a versioned dataset, then read it back cheaply. Hopsworks `create_training_data` then `get_training_data`. Feast has no native offline equivalent, `get_historical_features` rebuilds the join every read.
 
-The honest read: below about 100k rows, Feast's in-memory pandas join wins because it has no distributed-query overhead. Above it, Hopsworks pulls away and the gap widens without bound. Production training sets are millions of rows, which is the right of the crossover.
+Measured on dev0 at 10k rows, 25 groups:
 
-## The small-scale floor is join-width bound, not row bound
+| operation | method | time |
+|---|---|---|
+| on-the-fly build | Feast `get_historical_features` | 5.3 s |
+| on-the-fly build | Hopsworks `training_data` (PIT, in-memory) | 51.1 s |
+| on-the-fly build | Hopsworks `get_batch_data` (time-range, no PIT) | 45.4 s |
+| materialize once | Hopsworks `create_training_data` (job) | 60.6 s |
+| **read materialized** | Hopsworks `get_training_data` (warm) | **0.75 s** |
 
-The row curve above is measured at a fixed 25-group fan-out (the feast-benchmarks design: 25 feature groups joined point-in-time). That fan-out, not the row count, is what makes Hopsworks slow at 10k. Re-measured on the same machine with `get_batch_data` (DELTA feature groups, read over the Hopsworks Query Service / Arrow Flight), holding rows at 10k and varying the number of joined groups:
+## On-the-fly: Feast wins small, Hopsworks wins at scale
+
+![Offline on-the-fly build vs rows](../img/offline_scale.png)
+
+On-the-fly, both stores rebuild the join every call. Feast's in-memory pandas join is cheap at small N. Hopsworks pays a distributed-query cost that is dominated by query construction and grows with the number of joined groups (see below), so at 10k with a 25-way join it is ~50 s against Feast's 5.3 s. The lines cross between 100k and 1M; at 1M Hopsworks is ~3.2x faster (109 s vs 344 s), and at 10M Feast OOM-crashes with no distributed fallback while Hopsworks completes.
+
+Choosing the correct API does not rescue the small-N on-the-fly case: `training_data` (51 s) is no faster than `get_batch_data` (45 s). The on-the-fly wide join is genuinely expensive at small scale; it is not an API mistake.
+
+The 100k and 1M on-the-fly points are the earlier `get_batch_data` run and have not been re-measured with `training_data` on DELTA groups; the row-scaling shape holds either way.
+
+## The on-the-fly floor is join-width bound
 
 ![Offline floor vs join width](../img/offline_join_width.png)
 
-| groups joined | features | Hopsworks 10k (warm median) |
-|---|---|---|
-| 1 | 10 | 2.99 s |
-| 5 | 50 | 10.01 s |
-| 25 | 250 | 52.04 s |
+Holding rows at 10k and varying the number of joined groups, Hopsworks `get_batch_data` runs 3.0 s at 1 group, 10 s at 5, 52 s at 25. Roughly 2 s per group. A cProfile of the 25-group call puts ~24 s in `_get_batch_query` and ~12 s in `_construct_query` (backend query construction) and only ~10 s in the Arrow Flight read; client-side parsing is 0.15 s. So the on-the-fly floor is server-side query construction that scales with join width, not a row cost. It reproduced identically on dev0 (starved), on the eu-west SaaS (healthy), and with `online_enabled` both true and false, so it is not cluster memory pressure and not the online setting. It is the cost of constructing a wide point-in-time join in this Hopsworks version (5.0.3), and worth a ticket upstream.
 
-Roughly 2 s per group added: 3.0 s at 1 group, 52 s at 25. So the "Feast wins below 100k" concession is driven by the 25-way fan-out of the feast-benchmarks design, and narrows sharply with fewer groups.
+Feast's 5.3 s is at the full 250 features; at narrow widths Feast reads less and is faster, so a fair by-width comparison would need Feast measured at the same widths (its width harness is not clean here: empty spine on this parquet plus a pandas datetime dtype error on the multi-FV join). What is established is the Hopsworks side.
 
-This does not by itself mean Hopsworks wins at 10k with a narrow feature view. Feast's 5.3 s is measured at the full 250 features (25 FVs); at a narrow width Feast reads less data and is also faster (a 1-group read on this data is sub-second), so a fair by-width comparison needs Feast measured at the same widths, which is not yet clean here (the Feast width harness returns an empty spine on this parquet and hits a pandas datetime dtype error on the multi-FV join). What is established is the Hopsworks side: the small-scale floor is fan-out cost, not a row cost and not cluster starvation.
+## Materialize once, read many: the training workflow
 
-Where the time goes (cProfile of one warm `get_batch_data`, 25 groups, 10k rows, 47 s total):
+![Offline read-many](../img/offline_materialized.png)
 
-- `_get_batch_query` (backend builds the 25-way point-in-time join SQL): ~24 s.
-- `_construct_query` (query-constructor service): ~12 s.
-- Arrow Flight read (the actual data): ~10 s.
-- client-side parsing of the 25 feature groups: 0.15 s, negligible.
+The realistic training loop materializes a dataset once and reads it many times (epochs, experiments, re-runs). Hopsworks materializes a versioned training dataset once (60.6 s at 10k/25 groups) and then reads it in **0.75 s**, and that read is width-independent because the join is baked into the stored table. Feast has no materialized offline dataset: every read is another `get_historical_features` at 5.3 s. Cumulatively Hopsworks overtakes Feast at ~13 reads, and per read after that it is 0.75 s against 5.3 s. Hopsworks training datasets are also versioned, which Feast's offline path does not provide.
 
-So ~36 s of the floor is server-side query construction that scales with the number of joined groups, and only ~10 s is the read. Scaling down the non-essential platform deployments (superset, trino, opensearch, grafana, prometheus, airflow) to free memory left the query-construction time unchanged, so the floor is the cost of constructing a wide point-in-time join in this Hopsworks version, not cluster memory starvation.
-
-Note on the earlier `get_batch_data` numbers: on this client version (hopsworks 5.0.3) the offline read only works on DELTA feature groups. Reading the original HUDI groups now raises "Reading data with Hive is not supported (client >= 4.0)", so the re-measurement uses DELTA groups over Arrow Flight.
+The materialized read is measured at 10k; the mechanism (read a flat stored table, no join) is size-scaling but width-independent. 100k and 1M materialized reads are not yet measured (they need DELTA groups built at those sizes, a heavy run).
 
 ## 10M: where Feast ends
 
 - **Feast**: does not complete. The driver run was OOM-killed by the host in ~42 s; a re-run under a 300 GB address-space limit ran for minutes without finishing. The file offline store does a 25-way pandas join of a 10M x 250 dataset in memory, and it is not viable. Feast has no distributed fallback.
-- **Hopsworks**: the 25 feature groups of 10M rows each insert cleanly in ~9 minutes (~22 s per group). The read is where scale shows. The Python client's Arrow Flight / DuckDB engine hit its service temp-directory limit (OOM at 19.5 GB of spill) on the 25-way 10M join, so the production path is Spark (`create_training_data(write_options={"use_spark": True})`), which Feast has no equivalent of. Getting Spark to run took clearing a 130-job stats backlog and freeing memory (the platform reserves 92 to 99% of the small 4x32GB cluster). Once scheduled, the Spark job ran the full 25-way 10M join with RSS shuffle, thousands of tasks over ~75 minutes on two single-core executors, then the default 2 GB driver OOM-failed at finalization. Raising the driver memory is blocked by a Hopsworks client bug (job update mangles the system job's `local://` appPath into an invalid DFS path, HTTP 422), so a completed timing is not recorded. The result stands qualitatively: Hopsworks executes the 10M join that Feast OOM-crashes on instantly. Only a driver-memory bump (blocked by that client bug on this version) and a larger cluster separate it from a clean number.
+- **Hopsworks**: the 25 feature groups of 10M rows each insert cleanly in ~9 minutes. The Python client's Arrow Flight / DuckDB engine hit its service temp-directory limit (OOM at 19.5 GB of spill) on the 25-way 10M on-the-fly join, so the production path at that size is Spark (`create_training_data(write_options={"use_spark": True})`), which Feast has no equivalent of. A clean 10M timing is blocked by a client bug (job update mangles the system job's `local://` appPath into an invalid DFS path, HTTP 422) and cluster capacity; the result stands qualitatively.
 
 ## Method notes
 
 - Feast's 25 feature views read one parquet; Hopsworks joins 25 offline feature groups. Same logical output (N rows, 250 features, PIT).
+- On hopsworks 5.0.3 the offline read only works on DELTA feature groups. Reading the original HUDI benchmark groups raises "Reading data with Hive is not supported (client >= 4.0)", so the re-measurement uses DELTA groups over Arrow Flight.
 - The Hopsworks output has 300 columns (250 features plus entity and per-group event-time columns from the join); Feast returns 252. Row counts match N on both.
-- Two Feast cells show contention variance (100k at 36 and 49 s, 1M at 344 and 370 s) from an overlapping run; the lower, isolated values are used above.
+- Two Feast cells showed contention variance (100k at 36 and 49 s, 1M at 344 and 370 s) from an overlapping run; the lower, isolated values are used.

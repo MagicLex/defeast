@@ -171,17 +171,39 @@ ax.annotate("25 groups =\nfeast-benchmarks design", xy=(25, 52.04), xytext=(15, 
 style(ax); ax.legend(frameon=False, fontsize=9.5, loc="upper left")
 save(fig, "offline_join_width.png")
 
-# --- Offline crossover (seconds vs rows, log-log). Source offline/RESULTS.md. ---
+# --- Offline materialize-once, read-many (10k, 25 groups). Source
+# offline/results/methods_10k.jsonl. Hopsworks materializes a versioned training
+# dataset once, then reads it in 0.75s (join baked in, width-independent). Feast has
+# no materialized offline read: get_historical_features rebuilds the join every read. ---
+fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=150)
+reads = list(range(0, 26))
+hops_mat, hops_read, feast_read = 60.62, 0.75, 5.3
+hops_cum = [hops_mat + hops_read * n for n in reads]
+feast_cum = [feast_read * n for n in reads]
+ax.plot(reads, hops_cum, color=HOPS, label="Hopsworks: materialize once (61s) + 0.75s/read", **MARK)
+ax.plot(reads, feast_cum, color=FEAST, label="Feast: rebuild join every read (5.3s/read)", **MARK)
+cross = hops_mat / (feast_read - hops_read)
+ax.axvline(cross, color=MUT, lw=1, ls=":", zorder=1)
+ax.set_ylim(bottom=0); ax.set_xlim(left=0)
+ax.set_title("Offline read-many: materialized dataset vs rebuilding (10k, 25 groups)", fontweight="bold", fontsize=12, pad=10, loc="left")
+ax.set_xlabel("number of reads of the same training set"); ax.set_ylabel("cumulative time (seconds)")
+ax.annotate(f"crossover ~{cross:.0f} reads", xy=(cross, feast_read * cross), xytext=(cross + 0.6, feast_read * cross - 22), ha="left", color=MUT, fontsize=9.5)
+ax.annotate("0.75s/read,\nwidth-independent", xy=(25, hops_cum[-1]), xytext=(24.5, hops_cum[-1] + 12), ha="right", va="bottom", color=HOPS, fontweight="bold", fontsize=9.5)
+style(ax); ax.legend(frameon=False, fontsize=9, loc="upper left")
+save(fig, "offline_materialized.png")
+
+# --- Offline crossover (on-the-fly build, seconds vs rows, log-log). Source
+# offline/RESULTS.md. Both stores rebuild the join on the fly here. ---
 # Hopsworks 10k is its distributed-query overhead floor (~45s), not a clean win.
 fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=150)
 rows = [1e4, 1e5, 1e6]
-ax.plot(rows, [5.3, 35.6, 344], color=FEAST, label="Feast (file, pandas in-memory)", **MARK)
-ax.plot(rows, [45, 53.8, 109], color=HOPS, label="Hopsworks (Hudi, Arrow Flight)", **MARK)
+ax.plot(rows, [5.3, 35.6, 344], color=FEAST, label="Feast get_historical_features (pandas in-memory)", **MARK)
+ax.plot(rows, [45, 53.8, 109], color=HOPS, label="Hopsworks on-the-fly (rebuild join per read)", **MARK)
 ax.set_xscale("log"); ax.set_yscale("log"); ax.set_xticks(rows)
 ax.get_xaxis().set_major_formatter(FuncFormatter(lambda v, _: {1e4: "10k", 1e5: "100k", 1e6: "1M"}.get(v, f"{v:g}")))
 ax.get_yaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}"))
 ax.axvspan(1e5, 1e6, color="#f4f4f0", zorder=0)
-ax.set_title("Offline training data: the crossover", fontweight="bold", fontsize=12, pad=10, loc="left")
+ax.set_title("Offline on-the-fly build vs rows (25 groups)", fontweight="bold", fontsize=12, pad=10, loc="left")
 ax.set_xlabel("training set size (rows, log)"); ax.set_ylabel("time to build (seconds, log)")
 ax.annotate("crossover", xy=(3.2e5, 70), color=MUT, fontsize=9.5, ha="center")
 ax.annotate("Feast OOM-crashes at 10M\n(no distributed fallback)", xy=(1e6, 344),
@@ -189,4 +211,4 @@ ax.annotate("Feast OOM-crashes at 10M\n(no distributed fallback)", xy=(1e6, 344)
 style(ax); ax.legend(frameon=False, fontsize=9.5, loc="upper left")
 save(fig, "offline_scale.png")
 
-print("wrote img/{online_latency,tail_latency,throughput,offline_join_width,offline_scale}.png")
+print("wrote img/{online_latency,tail_latency,throughput,offline_join_width,offline_materialized,offline_scale}.png")

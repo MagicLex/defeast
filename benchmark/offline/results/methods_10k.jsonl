@@ -1,0 +1,5 @@
+{"cluster":"dev0","rows":10000,"groups":25,"features":250,"side":"hopsworks","method":"get_batch_data","note":"on-the-fly, time-range read, no PIT join (batch inference API)","seconds":45.43}
+{"cluster":"dev0","rows":10000,"groups":25,"features":250,"side":"hopsworks","method":"training_data","note":"on-the-fly PIT join, in-memory (correct training build)","warm_median_s":51.07,"warm_min_s":49.25}
+{"cluster":"dev0","rows":10000,"groups":25,"features":250,"side":"hopsworks","method":"create_training_data","note":"materialize once to a versioned dataset (job)","seconds":60.62}
+{"cluster":"dev0","rows":10000,"groups":25,"features":250,"side":"hopsworks","method":"get_training_data","note":"read the materialized version, warm; width-independent (join baked in)","warm_median_s":0.75,"warm_min_s":0.71}
+{"rows":10000,"groups":25,"features":250,"side":"feast","method":"get_historical_features","note":"on-the-fly PIT join, rebuilt every read; no native materialized offline read","seconds":5.3}
