@@ -6,7 +6,7 @@ Building a training dataset: N unique entities, 250 features, point-in-time corr
 
 Offline retrieval has two distinct patterns, and they have very different costs. The first version of this axis measured only the first one, with the wrong Hopsworks API, and that undersold the store on the pattern that matters for training.
 
-- **On-the-fly build**: compute the point-in-time join and return the rows now. Feast `get_historical_features`; Hopsworks `training_data()` (or the older `get_batch_data`, which is actually a batch-inference time-range read and does not do a PIT join). Both stores rebuild the join on every call.
+- **On-the-fly build**: compute the point-in-time join and return the rows now. Feast `get_historical_features`; Hopsworks `training_data()`. Both stores rebuild the join on every call. (The `get_batch_data` numbers below come from a related but different API: it does the same wide PIT join across the joined groups, but observes over a time range (`start_time`/`end_time`) instead of an entity spine, so `training_data` is the true analogue of Feast's spine-driven `get_historical_features`.)
 - **Materialize once, read many**: compute the join once into a versioned dataset, then read it back cheaply. Hopsworks `create_training_data` then `get_training_data`. Feast has no native offline equivalent, `get_historical_features` rebuilds the join every read.
 
 Measured on dev0 at 10k rows, 25 groups:
@@ -15,7 +15,7 @@ Measured on dev0 at 10k rows, 25 groups:
 |---|---|---|
 | on-the-fly build | Feast `get_historical_features` | 5.3 s |
 | on-the-fly build | Hopsworks `training_data` (PIT, in-memory) | 51.1 s |
-| on-the-fly build | Hopsworks `get_batch_data` (time-range, no PIT) | 45.4 s |
+| on-the-fly build | Hopsworks `get_batch_data` (same PIT join, time-range spine) | 45.4 s |
 | materialize once | Hopsworks `create_training_data` (job) | 60.6 s |
 | **read materialized** | Hopsworks `get_training_data` (warm) | **0.75 s** |
 
@@ -33,7 +33,9 @@ The 100k and 1M on-the-fly points are the earlier `get_batch_data` run and have 
 
 ![Offline floor vs join width](../img/offline_join_width.png)
 
-Holding rows at 10k and varying the number of joined groups, Hopsworks `get_batch_data` runs 3.0 s at 1 group, 10 s at 5, 52 s at 25. Roughly 2 s per group. A cProfile of the 25-group call puts ~24 s in `_get_batch_query` and ~12 s in `_construct_query` (backend query construction) and only ~10 s in the Arrow Flight read; client-side parsing is 0.15 s. So the on-the-fly floor is server-side query construction that scales with join width, not a row cost. It reproduced identically on dev0 (starved), on the eu-west SaaS (healthy), and with `online_enabled` both true and false, so it is not cluster memory pressure and not the online setting. It is the cost of constructing a wide point-in-time join in this Hopsworks version (5.0.3), and worth a ticket upstream.
+Holding rows at 10k and varying the number of joined groups, Hopsworks `get_batch_data` (the time-range path, same wide PIT join) runs 3.0 s at 1 group, 10 s at 5, 52 s at 25. Roughly 2 s per group. A cProfile of the 25-group call puts ~24 s in `_get_batch_query` and ~12 s in `_construct_query` (backend query construction) and only ~10 s in the Arrow Flight read; client-side parsing is 0.15 s. So the on-the-fly floor is server-side query construction that scales with join width, not a row cost. It reproduced identically on dev0 (starved), on the eu-west SaaS (healthy), and with `online_enabled` both true and false, so it is not cluster memory pressure and not the online setting. It is the cost of constructing a wide point-in-time join in this Hopsworks version (5.0.3), and worth a ticket upstream.
+
+This floor is measured without `lookback`, which is the honest worst case for both stores (Feast's pandas join scans everything too). Hopsworks documents `lookback` as a partition-pruning knob on both `get_batch_data` and `create_training_data`: the PIT `event_time <=` comparison is a range, which defeats partition pruning and forces a full-history scan, and `lookback` turns the window into a constant-bound predicate the engine can prune on before opening files. It attacks this exact floor, and Feast's file offline store has no equivalent. We do not claim the pruned number here; it is a lever left unmeasured, not a result.
 
 Feast's 5.3 s is at the full 250 features; at narrow widths Feast reads less and is faster, so a fair by-width comparison would need Feast measured at the same widths (its width harness is not clean here: empty spine on this parquet plus a pandas datetime dtype error on the multi-FV join). What is established is the Hopsworks side.
 
