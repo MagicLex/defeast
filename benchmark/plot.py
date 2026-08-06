@@ -152,22 +152,22 @@ b.annotate(f"Feast p99 collapses to {max(fp99) / 1000:.0f} s", xy=(60, max(fp99)
 style(b); b.legend(frameon=False, fontsize=9.5, loc="upper left")
 save(fig, "throughput.png")
 
-# --- Offline join-width floor (get_batch_data at 10k vs groups joined). Source
-# offline/results/join_width_10k.jsonl. The offline floor is fan-out-bound: each
+# --- Offline join-width floor (training_data at 10k vs groups joined). Source
+# offline/results/training_data.jsonl. The offline floor is fan-out-bound: each
 # joined group adds backend query-construction, not row cost. ---
 fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=150)
 groups = [1, 5, 25]
-hops = [2.99, 10.01, 52.04]
-ax.plot(groups, hops, color=HOPS, label="Hopsworks get_batch_data (DELTA/HQS)", **MARK)
+hops = [2.67, 8.68, 42.66]
+ax.plot(groups, hops, color=HOPS, label="Hopsworks training_data (DELTA/HQS)", **MARK)
 # Feast is only measured at the full 250 features (25 FVs), so it is one point at 25
 # groups, not a line: at narrow widths Feast reads less and is faster, unmeasured here.
 ax.plot([25], [5.3], color=FEAST, marker="D", ms=8, ls="none", zorder=4, label="Feast get_historical_features (250 features)")
 ax.set_xticks(groups); ax.set_ylim(bottom=0)
 ax.set_title("Hopsworks offline floor scales with join width (10k rows)", fontweight="bold", fontsize=12, pad=10, loc="left")
 ax.set_xlabel("feature groups joined (point-in-time)"); ax.set_ylabel("time to build (seconds)")
-ax.annotate("~2s per group added\n(query construction)", xy=(25, 52.04), xytext=(23.5, 52.04), ha="right", va="center", color=HOPS, fontweight="bold", fontsize=9.5)
-ax.annotate("Feast at 250 feats: 5.3s\n(narrow widths not measured)", xy=(25, 5.3), xytext=(24, 13), ha="right", va="bottom", color=FEAST, fontsize=9)
-ax.annotate("25 groups =\nfeast-benchmarks design", xy=(25, 52.04), xytext=(15, 43), ha="center", va="top", color=MUT, fontsize=9)
+ax.annotate("~1.7s per group added\n(query construction)", xy=(25, 42.66), xytext=(23.5, 42.66), ha="right", va="center", color=HOPS, fontweight="bold", fontsize=9.5)
+ax.annotate("Feast at 250 feats: 5.3s\n(narrow widths not measured)", xy=(25, 5.3), xytext=(24, 11), ha="right", va="bottom", color=FEAST, fontsize=9)
+ax.annotate("25 groups =\nfeast-benchmarks design", xy=(25, 42.66), xytext=(15, 35), ha="center", va="top", color=MUT, fontsize=9)
 style(ax); ax.legend(frameon=False, fontsize=9.5, loc="upper left")
 save(fig, "offline_join_width.png")
 
@@ -193,12 +193,14 @@ style(ax); ax.legend(frameon=False, fontsize=9, loc="upper left")
 save(fig, "offline_materialized.png")
 
 # --- Offline crossover (on-the-fly build, seconds vs rows, log-log). Source
-# offline/RESULTS.md. Both stores rebuild the join on the fly here. ---
-# Hopsworks 10k is its distributed-query overhead floor (~45s), not a clean win.
+# offline/results/training_data.jsonl (Hopsworks) and offline/results/feast.jsonl.
+# Both stores rebuild the join on the fly here, same API on each side:
+# training_data vs get_historical_features. ---
+# Hopsworks 10k is its distributed-query overhead floor (~43s), not a clean win.
 fig, ax = plt.subplots(figsize=(7.5, 4.4), dpi=150)
 rows = [1e4, 1e5, 1e6]
 ax.plot(rows, [5.3, 35.6, 344], color=FEAST, label="Feast get_historical_features (pandas in-memory)", **MARK)
-ax.plot(rows, [45, 53.8, 109], color=HOPS, label="Hopsworks on-the-fly (rebuild join per read)", **MARK)
+ax.plot(rows, [42.7, 49.5, 93.9], color=HOPS, label="Hopsworks training_data (rebuild join per read)", **MARK)
 ax.set_xscale("log"); ax.set_yscale("log"); ax.set_xticks(rows)
 ax.get_xaxis().set_major_formatter(FuncFormatter(lambda v, _: {1e4: "10k", 1e5: "100k", 1e6: "1M"}.get(v, f"{v:g}")))
 ax.get_yaxis().set_major_formatter(FuncFormatter(lambda v, _: f"{int(v)}"))
