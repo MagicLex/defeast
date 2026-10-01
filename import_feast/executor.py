@@ -4,6 +4,9 @@ parquet directly with pandas, so it needs hsfs but not feast."""
 
 from __future__ import annotations
 
+import json
+import sys
+
 # Hopsworks (Hive) type -> numpy dtype, to coerce the backfill dataframe to the plan's
 # declared schema before insert. A Feast Int32 feature is commonly stored as parquet
 # int64; without coercion hsfs rejects the insert (declared 'int' vs derived 'bigint').
@@ -34,6 +37,10 @@ def _coerce(series, htype: str):
     when the column has nulls and the target is integer/bool (numpy cannot hold them).
     This keeps hsfs schema-compat deriving 'int' (not 'double'); the HUDI insert then
     needs fastavro to encode the rows, which the [execute] extra pulls in."""
+    if htype == "string" and series.dtype == object:
+        # Map/Json/Struct features are planned as string, but the parquet holds them as
+        # structs (dicts on read): serialize those to JSON so the declared type holds.
+        return series.map(lambda v: v if v is None or isinstance(v, (str, float)) else json.dumps(v, default=str))
     target = _HIVE_TO_PANDAS.get(htype)
     if target is None or str(series.dtype) == target:
         return series
@@ -42,7 +49,7 @@ def _coerce(series, htype: str):
     return series.astype(target)
 
 
-def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_statistics: bool = False) -> dict:
+def execute(plan: dict, host: str | None, port: int, project: str | None, api_key: str | None, no_statistics: bool = False, out=None) -> dict:
     import hopsworks
     import pandas as pd
     from hsfs.feature import Feature
@@ -50,11 +57,11 @@ def execute(plan: dict, host: str, port: int, project: str, api_key: str, no_sta
     result = {"connectors_manual": [], "feature_groups": [], "feature_views": [], "skipped": []}
 
     def log(m):
-        print(f"[import-feast] {m}", flush=True)
+        print(f"[import-feast] {m}", file=out or sys.stdout, flush=True)
 
     proj = hopsworks.login(host=host, port=port, project=project, api_key_value=api_key)
     fs = proj.get_feature_store()
-    log(f"connected to {project}")
+    log(f"connected to {proj.name}")
 
     # Connectors carry credentials that never migrate: they must be created by hand.
     for c in plan.get("connectors", []):

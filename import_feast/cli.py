@@ -4,6 +4,7 @@ Slice 0 is dry-run only, nothing is written to Hopsworks."""
 from __future__ import annotations
 
 import argparse
+import contextlib
 import sys
 
 from .mapper import build_plan
@@ -101,12 +102,22 @@ def _cmd_execute(args) -> int:
     from . import plan as plan_mod
     from .executor import execute
 
+    # Without --host the client logs in from its environment: a Hopsworks terminal, job or notebook.
     api_key = args.api_key or (open(args.api_key_file).read().strip() if args.api_key_file else os.environ.get("HOPSWORKS_API_KEY"))
-    if not api_key:
+    if args.host and not api_key:
         print("error: no API key (pass --api-key, --api-key-file, or set HOPSWORKS_API_KEY)", file=sys.stderr)
         return 2
     plan = plan_mod.load(args.plan)
-    execute(plan, host=args.host, port=args.port, project=args.project, api_key=api_key, no_statistics=args.no_statistics)
+    # The hopsworks client prints its own progress (job URLs, upload bars, INFO logs): keep only
+    # the bridge's lines unless asked. Errors still surface, the traceback prints after the redirect.
+    out = sys.stdout
+    with contextlib.ExitStack() as stack:
+        if not args.verbose:
+            # Left open: the client's log handlers keep this stream and still write at interpreter exit.
+            null = open(os.devnull, "w")
+            stack.enter_context(contextlib.redirect_stdout(null))
+            stack.enter_context(contextlib.redirect_stderr(null))
+        execute(plan, host=args.host, port=args.port, project=args.project, api_key=api_key, no_statistics=args.no_statistics, out=out)
     return 0
 
 
@@ -124,12 +135,13 @@ def main(argv=None) -> int:
 
     e = sub.add_parser("execute", help="run a saved plan against Hopsworks. Needs hsfs, not feast.")
     e.add_argument("plan", help="a plan JSON produced by 'import-feast plan -o'")
-    e.add_argument("--host", required=True)
+    e.add_argument("--host", help="Hopsworks host; omit inside Hopsworks (terminal, job, notebook) to use its login")
     e.add_argument("--port", type=int, default=443)
-    e.add_argument("--project", required=True)
+    e.add_argument("--project", help="target project; defaults to the current one inside Hopsworks")
     e.add_argument("--api-key")
     e.add_argument("--api-key-file")
     e.add_argument("--no-statistics", action="store_true", help="disable FG statistics jobs (lighter on the cluster)")
+    e.add_argument("--verbose", action="store_true", help="also show the hopsworks client output (job links, upload progress, logs)")
     e.set_defaults(func=_cmd_execute)
 
     args = ap.parse_args(argv)

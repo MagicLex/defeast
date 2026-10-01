@@ -26,10 +26,17 @@ import-feast plan <feast_repo> -o plan.json
 
 # 2. run it against Hopsworks                        (Hopsworks environment, needs the hopsworks client)
 pip install -e '.[execute]'
-import-feast execute plan.json --host <host> --project <project> --api-key-file <file> [--no-statistics]
+import-feast execute plan.json --host <host> --project <project> --api-key-file <file> [--no-statistics] [--verbose]
+
+# inside Hopsworks (terminal, job, notebook) the client logs in from its environment
+import-feast execute plan.json
 ```
 
-`plan` prints, in create order: storage connectors, feature groups (backfill + mapped types), feature views (Feast feature services as queries over the groups), and a warning per human-decision point (TTL semantics, on-demand UDF translation, stream aggregations, credentials, dedup, unsupported sources).
+`execute` prints only its own progress lines; `--verbose` adds the hopsworks client output (job links, upload progress, logs).
+
+`plan` prints, in create order: storage connectors, feature groups (backfill + mapped types), feature views (Feast feature services as queries over the groups), and a warning per human-decision point (TTL semantics, on-demand UDF translation, stream aggregations, credentials, dedup, unsupported sources, label views).
+
+`Map`, `Json` and `Struct` features are planned as `string`; `execute` writes their values as JSON.
 
 ## Layout
 

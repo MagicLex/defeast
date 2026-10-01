@@ -28,7 +28,7 @@ Building a training dataset (N unique entities, 250 features, point-in-time join
 
 ![Offline on-the-fly build vs rows](img/offline_scale.png)
 
-Feast's in-memory pandas join wins below about 100k rows. Above the crossover Hopsworks pulls away (3.2x at 1M) and at 10M Feast OOM-crashes with no distributed fallback while Hopsworks completes via Spark. The small-N loss is real, not an API artifact: `training_data` (51s at 10k/25 groups) is no faster than `get_batch_data` (45s). It is also join-width bound, 3.0s at 1 group to 52s at 25 (below), dominated by backend query construction, reproduced on two clusters and with `online_enabled` on or off.
+Feast's in-memory pandas join wins below about 100k rows. Above the crossover Hopsworks pulls away (3.7x at 1M) and at 10M Feast OOM-crashes with no distributed fallback while Hopsworks completes via Spark. The small-N loss is real, not an API artifact: `training_data` (51s at 10k/25 groups) is no faster than `get_batch_data` (45s). It is also join-width bound, 3.0s at 1 group to 52s at 25 (below), dominated by backend query construction, reproduced on two clusters and with `online_enabled` on or off.
 
 ![Offline floor vs join width](img/offline_join_width.png)
 

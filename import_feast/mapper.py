@@ -147,7 +147,7 @@ def _map_batch_fv(fv, entities: dict, repo_path: str):
         warnings.append(Warning(fv.name, "ttl", f"TTL {ttl}: online expiry transfers, the historical-join lookback bound does not"))
 
     if getattr(src, "created_timestamp_column", None):
-        warnings.append(Warning(fv.name, "dedup", f"created_timestamp_column '{src.created_timestamp_column}' needs HUDI (hudi_precombine_key); DELTA default changes dedup tiebreak"))
+        warnings.append(Warning(fv.name, "dedup", f"created_timestamp_column '{src.created_timestamp_column}' is not carried: rows sharing a key and event time keep the last write"))
     if getattr(src, "field_mapping", None):
         backfill.field_mapping = dict(src.field_mapping)
         warnings.append(Warning(fv.name, "type", f"source field_mapping {dict(src.field_mapping)} applied during backfill"))
@@ -234,6 +234,10 @@ def build_plan(store, repo_path: str) -> MigrationPlan:
             plan.warnings.append(Warning(sfv.name, "stream", "stream feature view: maps to a stream=True FG; window aggregations must be regenerated as a Spark job"))
     except Exception as e:
         plan.warnings.append(Warning("*", "stream", f"could not read stream feature views ({e})"))
+
+    # Label views (Feast 0.66+) hold training labels; the bridge does not replay them yet.
+    for lv in getattr(store, "list_label_views", lambda: [])():
+        plan.warnings.append(Warning(lv.name, "unsupported", "label view: not replayed, write the labels to a feature group by hand"))
 
     services = store.list_feature_services()
     for svc in services:

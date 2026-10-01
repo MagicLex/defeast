@@ -9,7 +9,7 @@ Last updated: 2026-07-28.
 - Benchmark, four axes, harness and raw results in `benchmark/`:
   - Online latency SDK: Hopsworks 2x to 28x faster at p50 (`RESULTS.md`).
   - Online latency HTTP: low-load p50 confirms the SDK finding (`RESULTS_HTTP.md`).
-  - Offline batch: in-memory vs distributed crossover, Feast wins below ~100k, Hopsworks 3.2x at 1M, Feast OOM at 10M (`RESULTS_BATCH.md`).
+  - Offline batch: in-memory vs distributed crossover, Feast wins below ~100k, Hopsworks 3.7x at 1M, Feast OOM at 10M (`RESULTS_BATCH.md`).
   - Point-in-time: both leak-free, table-stakes (`RESULTS_PIT.md`).
   - Reusability: read-level parity, lineage and governance native in Hopsworks only (`RESULTS_REUSE.md`).
 - Shareable artifact (report.html) with the four-claims scorecard.

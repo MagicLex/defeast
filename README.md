@@ -33,7 +33,7 @@ One node, both stores and both clients on it, July 2026. No external network on 
 | Axis | What came out | Winner |
 |---|---|---|
 | **Online serving** | 4.9x ahead at one row, 21.8x at a hundred, 15.4x at 250 features (p50). The tail is where it matters most for serving, and where the gap is widest: see below. | **Hopsworks** |
-| **Offline training data** | Two patterns. Building on the fly (both stores rebuild the join): Feast wins small (5.3s vs 51s at 10k), Hopsworks wins at scale (3.2x at 1M, the only one to survive 10M). Materialize once and read many, the real training loop: Hopsworks reads a versioned dataset in 0.75s, width-independent, where Feast rebuilds the join at 5.3s every read. | **split on-the-fly, Hopsworks for training loops** |
+| **Offline training data** | Two patterns. Building on the fly (both stores rebuild the join): Feast wins small (5.3s vs 51s at 10k), Hopsworks wins at scale (3.7x at 1M, the only one to survive 10M). Materialize once and read many, the real training loop: Hopsworks reads a versioned dataset in 0.75s, width-independent, where Feast rebuilds the join at 5.3s every read. | **split on-the-fly, Hopsworks for training loops** |
 | **Point-in-time** | Both leak-free, zero future values on either side. Table stakes. Feast does quietly drop the before-event rows, which thins your early training examples. | **tie** |
 | **Reusability** | Reading a feature in two places is parity. Lineage, who-consumes-this, cross-team sharing and access control are native in Hopsworks and missing from Feast's open-source default. | **Hopsworks** |
 
@@ -55,6 +55,9 @@ import-feast plan path/to/feast_repo -o plan.json
 # 2. run it against Hopsworks                        (a Hopsworks environment)
 pip install -e '.[execute]'
 import-feast execute plan.json --host <host> --project <project> --api-key-file <key>
+
+# or from inside Hopsworks (a terminal, job or notebook): no host, no key, current project
+import-feast execute plan.json
 ```
 
 `plan` writes nothing. It prints, in create order, the connectors, the feature groups, and the feature views, with a warning at every point where a human has to decide something. Read it before you run `execute`.
